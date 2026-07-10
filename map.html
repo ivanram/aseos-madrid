@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Debug - Aseos y servicios Madrid</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<style>
+  html, body { margin: 0; height: 100%; font-family: -apple-system, Segoe UI, Arial, sans-serif; }
+  #map { height: 100%; }
+  #panel {
+    position: absolute; top: 10px; right: 10px; z-index: 1000;
+    background: #fff; padding: 10px 14px; border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.3); font-size: 13px; max-width: 220px;
+  }
+  #panel h3 { margin: 0 0 8px; font-size: 13px; }
+  #panel label { display: block; margin: 4px 0; cursor: pointer; white-space: nowrap; }
+  #panel .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  #count { margin-top: 8px; font-size: 12px; color: #555; }
+  #panel .warn { font-size: 11px; color: #888; margin-top: 6px; }
+  .popup-table td { padding: 1px 6px 1px 0; vertical-align: top; font-size: 12px; }
+  .popup-table td:first-child { font-weight: 600; color: #555; white-space: nowrap; }
+  .popup-title { font-weight: 700; margin-bottom: 4px; font-size: 13px; }
+  #locate-btn {
+    position: absolute; top: 92px; left: 10px; z-index: 1000; background: #fff;
+    border: 2px solid rgba(0,0,0,0.2); border-radius: 6px; width: 40px; height: 40px;
+    cursor: pointer; font-size: 18px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  #locate-btn:hover { background: #f4f4f4; }
+  #locate-btn.active { color: #1a56db; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<button id="locate-btn" title="Mostrar mi ubicación">◎</button>
+<div id="panel">
+  <h3>Tipo (fuente)</h3>
+  <div id="checkboxes"></div>
+  <div id="count"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const STYLES = {
+  aseo_oficial:      { color: '#1a56db', label: 'Aseo oficial (Ayuntamiento)', cluster: false, defaultOn: true },
+  aseo_comunidad:    { color: '#e8590c', label: 'Aseo comunidad (OSM)', cluster: false, defaultOn: true },
+  bar:               { color: '#f59f00', label: 'Bar/cafetería (censo Ayto.)', cluster: true, defaultOn: false },
+  fastfood:          { color: '#e64980', label: 'Fastfood (censo Ayto.)', cluster: true, defaultOn: false },
+  centro_comercial:  { color: '#12b886', label: 'Centro comercial (censo Ayto.)', cluster: false, defaultOn: true },
+  estacion:          { color: '#7048e8', label: 'Estación (manual)', cluster: false, defaultOn: true },
+};
+
+const map = L.map('map', { preferCanvas: true }).setView([40.4168, -3.7038], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19,
+}).addTo(map);
+
+let meMarker = null;
+const locateBtn = document.getElementById('locate-btn');
+locateBtn.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    alert('Este navegador no soporta geolocalización.');
+    return;
+  }
+  locateBtn.classList.add('active');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      if (meMarker) map.removeLayer(meMarker);
+      meMarker = L.circleMarker([latitude, longitude], {
+        radius: 9, color: '#fff', weight: 2, fillColor: '#1971c2', fillOpacity: 1,
+      }).addTo(map).bindPopup('Tu ubicación').openPopup();
+      map.setView([latitude, longitude], 16);
+    },
+    (err) => {
+      alert('No se pudo obtener tu ubicación: ' + err.message);
+      locateBtn.classList.remove('active');
+    }
+  );
+});
+
+const layers = {};
+for (const tipo in STYLES) {
+  const style = STYLES[tipo];
+  layers[tipo] = style.cluster
+    ? L.markerClusterGroup({ disableClusteringAtZoom: 17, spiderfyOnMaxZoom: false })
+    : L.layerGroup();
+  if (style.defaultOn) layers[tipo].addTo(map);
+}
+
+function fmtHorario(h) {
+  if (!h) return '-';
+  const modos = {
+    '24h': '24h',
+    conocido: 'conocido: ' + (h.detalle || '-'),
+    estimado_categoria: 'estimado: ' + (h.detalle || '-'),
+    desconocido: 'desconocido',
+  };
+  return modos[h.modo] || h.modo;
+}
+
+function fmtBool(v) {
+  if (v === true) return 'sí';
+  if (v === false) return 'no';
+  return 'desconocido';
+}
+
+function popupHtml(r) {
+  const rows = [
+    ['tipo', r.tipo],
+    ['source', r.source],
+    ['nombre', r.nombre || '-'],
+    ['direccion', r.direccion || '-'],
+    ['pago', r.pago],
+    ['horario', fmtHorario(r.horario)],
+  ];
+  if ('accesible' in r) rows.push(['accesible', fmtBool(r.accesible)]);
+  if ('cambiador' in r) rows.push(['cambiador', fmtBool(r.cambiador)]);
+  if (r.agrupacion) rows.push(['agrupación', `${r.agrupacion.nombre} (${r.agrupacion.tipo})`]);
+  rows.push(['verificado', r.verificado || '-']);
+  rows.push(['id', r.id]);
+  rows.push(['lat, lon', r.lat.toFixed(6) + ', ' + r.lon.toFixed(6)]);
+
+  const body = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+  return `<div class="popup-title">${STYLES[r.tipo]?.label || r.tipo}</div>
+    <table class="popup-table">${body}</table>`;
+}
+
+fetch('data/aseos.json')
+  .then(res => res.json())
+  .then(data => {
+    const counts = {};
+    const pending = {}; // markers agrupados por tipo, para insertar en bloque (mucho mas rapido)
+    for (const tipo in STYLES) pending[tipo] = [];
+
+    data.lugares.forEach(r => {
+      const style = STYLES[r.tipo];
+      if (!style || !isFinite(r.lat) || !isFinite(r.lon)) return;
+      counts[r.tipo] = (counts[r.tipo] || 0) + 1;
+      const marker = L.circleMarker([r.lat, r.lon], {
+        radius: r.tipo.startsWith('aseo') || r.tipo === 'estacion' ? 9 : 6,
+        color: '#fff',
+        weight: 1.5,
+        fillColor: style.color,
+        fillOpacity: 0.9,
+      });
+      marker.bindPopup(popupHtml(r));
+      pending[r.tipo].push(marker);
+    });
+
+    for (const tipo in STYLES) {
+      const style = STYLES[tipo];
+      if (style.cluster) layers[tipo].addLayers(pending[tipo]); // insercion en bloque
+      else pending[tipo].forEach(m => m.addTo(layers[tipo]));
+    }
+
+    const checkboxesEl = document.getElementById('checkboxes');
+    for (const tipo in STYLES) {
+      const style = STYLES[tipo];
+      const n = counts[tipo] || 0;
+      const label = document.createElement('label');
+      label.innerHTML = `<input type="checkbox" ${style.defaultOn ? 'checked' : ''} data-tipo="${tipo}">
+        <span class="dot" style="background:${style.color}"></span>${style.label} (${n})`;
+      checkboxesEl.appendChild(label);
+    }
+    const warn = document.createElement('div');
+    warn.className = 'warn';
+    warn.textContent = 'Bar/Fastfood desactivados por defecto (son ~13.400 puntos); se agrupan en clusters al activarlos.';
+    checkboxesEl.appendChild(warn);
+
+    checkboxesEl.addEventListener('change', (e) => {
+      const tipo = e.target.getAttribute('data-tipo');
+      if (!tipo) return;
+      if (e.target.checked) map.addLayer(layers[tipo]);
+      else map.removeLayer(layers[tipo]);
+    });
+
+    document.getElementById('count').textContent =
+      `Total: ${data.lugares.length} | generado: ${data.generado}`;
+  })
+  .catch(err => {
+    document.getElementById('count').textContent = 'Error cargando data/aseos.json: ' + err;
+  });
+</script>
+</body>
+</html>
