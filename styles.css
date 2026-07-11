@@ -547,6 +547,19 @@ html[data-theme="dark"] #urgencyPanel.level-warn strong{ color:#e0b34a; }
 html[data-theme="dark"] #urgencyPanel.level-caution strong{ color:#e8944f; }
 html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
 
+/* ---------- Menú contextual del modo desarrollador (clic derecho en el mapa) ---------- */
+.dev-context-menu{
+  position:absolute;z-index:1200;background:var(--card);border-radius:10px;
+  box-shadow:var(--shadow);padding:4px;border:1px solid var(--line);
+  transform:translate(-8px,-8px);
+}
+.dev-context-menu button{
+  display:block;width:100%;border:none;background:none;cursor:pointer;
+  padding:10px 14px;font-size:.9rem;color:var(--ink);text-align:left;border-radius:7px;
+  white-space:nowrap;font:inherit;
+}
+.dev-context-menu button:active{ background:var(--bg); }
+
 /* ============================================================
    RESPONSIVE — pantallas grandes / tablets
    ============================================================ */

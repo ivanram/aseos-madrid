@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -795,7 +795,9 @@ function initMap() {
   map.on('move', updateFarOverlay);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
-  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); });
+  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); hideDevContextMenu(); });
+  map.on('movestart zoomstart', hideDevContextMenu);
+  map.on('contextmenu', (e) => { if (devUnlocked) showDevContextMenu(e.containerPoint, e.latlng); });
 
   $('recenter').addEventListener('click', recenterToUser);
   $('farBackBtn').addEventListener('click', recenterToUser);
@@ -1414,6 +1416,46 @@ function applyDevFakeLoc(lat, lon) {
   toast('Ubicación simulada. Recargando…');
   setTimeout(() => location.replace(location.pathname), 500);
 }
+/* Clic derecho en el mapa (modo dev): fija la ubicación EN VIVO, sin recargar
+   — mucho más cómodo para probar el panel de urgencia, el aviso de "fuera de
+   Madrid", etc. mientras se explora el mapa. También la persiste en
+   DEV_FAKELOC_KEY, igual que el resto del modo dev, para que sobreviva a un
+   refresco de página. Si había un watchPosition real activo, lo paramos: si
+   no, la siguiente lectura de GPS pisaría la ubicación fijada a mano. */
+function setDevLocationLive(lat, lon) {
+  try { localStorage.setItem(DEV_FAKELOC_KEY, JSON.stringify({ lat, lon })); } catch (_) {}
+  if (geoWatchId != null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+  userPos = { lat, lon, acc: 20 };
+  if (userMarker) userMarker.setLatLng([lat, lon]);
+  if (accCircle) { accCircle.setLatLng([lat, lon]); accCircle.setRadius(20); }
+  if (mapMode === 'compass' && map) map.setView([lat, lon], map.getZoom(), { animate: false });
+  lastRecomputePos = null;
+  recomputeDistances();
+  updateUrgencyPanel();
+  updateRecenterState();
+  if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
+  syncDevUI();
+  toast(`📍 Ubicación fijada: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+}
+let devContextLatLng = null;
+function hideDevContextMenu() {
+  const el = $('devContextMenu'); if (el) el.style.display = 'none';
+}
+function showDevContextMenu(containerPoint, latlng) {
+  const el = $('devContextMenu'); if (!el) return;
+  devContextLatLng = latlng;
+  el.style.left = containerPoint.x + 'px';
+  el.style.top = containerPoint.y + 'px';
+  el.style.display = 'block';
+}
+if ($('devSetLocHere')) $('devSetLocHere').addEventListener('click', () => {
+  if (devContextLatLng) setDevLocationLive(devContextLatLng.lat, devContextLatLng.lng);
+  hideDevContextMenu();
+});
+document.addEventListener('click', (e) => {
+  const menu = $('devContextMenu');
+  if (menu && menu.style.display !== 'none' && !menu.contains(e.target)) hideDevContextMenu();
+});
 if ($('devFakeLocApply')) $('devFakeLocApply').addEventListener('click', () => {
   const v = ($('devFakeLoc').value || '').trim();
   const m = v.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
