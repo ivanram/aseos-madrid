@@ -527,6 +527,26 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 .slider::-webkit-slider-thumb{ -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3); }
 .slider::-moz-range-thumb{ width:22px;height:22px;border:none;border-radius:50%;background:var(--blue);cursor:pointer; }
 
+/* ---------- Panel de urgencia (aseo gratis más cercano) ---------- */
+#urgencyPanel{
+  display:none;flex-direction:column;gap:2px;
+  padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);
+  font-size:.88rem;flex:0 0 auto;
+}
+#urgencyPanel .urgency-main{ display:flex;align-items:center;gap:9px; }
+#urgencyPanel .urgency-icon{ font-size:1.15rem;line-height:1;flex:0 0 auto; }
+#urgencyPanel .urgency-text{ display:flex;flex-direction:column;line-height:1.28;min-width:0; }
+#urgencyPanel strong{ font-size:.92rem;letter-spacing:-.01em; }
+#urgencyPanel .urgency-text > span{ color:var(--muted);font-size:.84rem; }
+#urgencyPanel .urgency-alt{ margin-left:27px;font-size:.74rem;color:var(--muted); }
+#urgencyPanel.level-ok strong{ color:var(--ok); }
+#urgencyPanel.level-warn strong{ color:#b8860b; }
+#urgencyPanel.level-caution strong{ color:#c9660c; }
+#urgencyPanel.level-danger strong{ color:#c0392b; }
+html[data-theme="dark"] #urgencyPanel.level-warn strong{ color:#e0b34a; }
+html[data-theme="dark"] #urgencyPanel.level-caution strong{ color:#e8944f; }
+html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
+
 /* ============================================================
    RESPONSIVE — pantallas grandes / tablets
    ============================================================ */

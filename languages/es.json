@@ -46,6 +46,10 @@
     "ar_cal": "Mueve el móvil en forma de 8 para calibrar la brújula", "ar_lift": "Levanta el móvil para verlo",
     "ar_follow": "Sigue el icono o la flecha", "ar_cam_no": "Tu navegador no permite usar la cámara para AR.",
     "ar_cam_err": "No se pudo abrir la cámara. Revisa los permisos.", "ar_perm": "Necesito permiso de orientación para la brújula.",
-    "far_text": "Esta app solo muestra aseos y servicios en Madrid", "far_back": "Volver"
+    "far_text": "Esta app solo muestra aseos y servicios en Madrid", "far_back": "Volver",
+    "urgency_ok": "Todo bajo control", "urgency_warn": "Ojo", "urgency_caution": "Precaución", "urgency_danger": "Alerta roja",
+    "urgency_detail": "Aseo gratis más cercano: {min} min andando",
+    "urgency_alt": "{min} min: posible aseo de emergencia (de pago o con consumición)",
+    "urgency_nodata": "Sin datos de aseos gratis cerca"
   }
 }

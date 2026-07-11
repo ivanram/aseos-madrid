@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -44,6 +44,23 @@ const TIPO_COLOR_FIJO = { bar: '#f59f00', fastfood: '#e64980', centro_comercial:
 const PAGO_LABEL = { gratis: 'Gratis', pago: 'De pago', consumicion: 'Con consumición', desconocido: 'Pago desconocido' };
 const EMERGENCY_TIPOS = new Set(['bar', 'fastfood', 'centro_comercial']);
 function tipoLabel(t) { return TIPO_LABEL[t] || t; }
+
+/* ---------- Panel de urgencia: minutos al aseo gratis más cercano ----------
+   Escala pedida explícitamente: <5 min tranquilo, <=10 ojo, <=20 precaución,
+   más de eso, alerta roja (el hueco entre "20" y "los 30 min" que se
+   mencionó como ejemplo lo resolvemos metiendo el corte en 20: a partir de
+   ahí ya es la categoría más grave, "30" queda como caso extremo dentro de
+   esa misma categoría, no como un quinto nivel). */
+const URGENCY_LEVELS = [
+  { key: 'ok', max: 5, icon: '🟢', labelKey: 'urgency_ok' },
+  { key: 'warn', max: 10, icon: '🟡', labelKey: 'urgency_warn' },
+  { key: 'caution', max: 20, icon: '🟠', labelKey: 'urgency_caution' },
+  { key: 'danger', max: Infinity, icon: '🔴', labelKey: 'urgency_danger' },
+];
+function urgencyLevelFor(min) {
+  if (min == null) return URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
+  return URGENCY_LEVELS.find(l => min <= l.max) || URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
+}
 
 /* ---------- State ---------- */
 let map, userMarker, accCircle, placeCluster, selectedMarker;
@@ -354,9 +371,10 @@ function fmtDist(m) {
   if (m == null) return '';
   return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 }
+function minutesWalk(m) { return m == null ? null : Math.round(m / 80); }
 function fmtWalkMin(m) {
   if (m == null) return '';
-  const min = Math.round(m / 80);
+  const min = minutesWalk(m);
   return min < 1 ? '<1 min' : `${min} min`;
 }
 function debounce(fn, ms) { let tm; return (...a) => { clearTimeout(tm); tm = setTimeout(() => fn(...a), ms); }; }
@@ -547,6 +565,45 @@ function checkOutsideMadrid() {
   if (!userPos || !corePlaces.length) return;
   if (nearestDistanceKm(userPos.lat, userPos.lon) > OUTSIDE_MADRID_KM) $('outsideModal').style.display = 'flex';
 }
+
+/* ---------- Panel de urgencia ---------- */
+/* Recorre TODO allPlaces (no el `places` filtrado): el aviso debe reflejar la
+   realidad aunque el usuario tenga desactivados los servicios de emergencia. */
+function nearestByPago(pagoSet) {
+  if (!userPos) return null;
+  let best = Infinity;
+  for (const p of allPlaces) {
+    if (!pagoSet.has(p.pago)) continue;
+    const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
+    if (d < best) best = d;
+  }
+  return isFinite(best) ? best : null;
+}
+const PAGO_GRATIS = new Set(['gratis']);
+const PAGO_ALTERNATIVA = new Set(['pago', 'consumicion']);
+function updateUrgencyPanel() {
+  const panel = $('urgencyPanel');
+  if (!panel || !userPos || !allPlaces.length) return;
+  const freeMin = minutesWalk(nearestByPago(PAGO_GRATIS));
+  const altMin = minutesWalk(nearestByPago(PAGO_ALTERNATIVA));
+  const level = urgencyLevelFor(freeMin);
+
+  panel.className = 'level-' + level.key;
+  $('urgencyIcon').textContent = level.icon;
+  $('urgencyLabel').textContent = t(level.labelKey);
+  $('urgencyDetail').textContent = freeMin == null
+    ? t('urgency_nodata')
+    : t('urgency_detail').replace('{min}', freeMin);
+
+  const altEl = $('urgencyAlt');
+  if (altMin != null && freeMin != null && altMin < freeMin) {
+    altEl.textContent = t('urgency_alt').replace('{min}', altMin);
+    altEl.style.display = '';
+  } else {
+    altEl.style.display = 'none';
+  }
+  panel.style.display = 'flex';
+}
 $('teleportBtn').addEventListener('click', () => {
   userPos = { lat: MADRID_SOL.lat, lon: MADRID_SOL.lon, acc: 20 };
   $('outsideModal').style.display = 'none';
@@ -554,6 +611,7 @@ $('teleportBtn').addEventListener('click', () => {
   if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc); }
   lastRecomputePos = null;
   recomputeDistances();
+  updateUrgencyPanel();
   fitInitialView();
 });
 $('outsideDismiss').addEventListener('click', () => {
@@ -729,6 +787,7 @@ function initMap() {
     chunkedLoading: true, maxClusterRadius: 60
   }).addTo(map);
   applyFilters();
+  updateUrgencyPanel();
 
   map.on('moveend zoomend', debounce(saveView, 400));
   map.on('moveend zoomend', updateRecenterState);
@@ -1016,6 +1075,7 @@ function watchPosition() {
       if (!lastRecomputePos || haversine(lastRecomputePos.lat, lastRecomputePos.lon, userPos.lat, userPos.lon) >= 3) {
         lastRecomputePos = { lat: userPos.lat, lon: userPos.lon };
         recomputeDistances();
+        updateUrgencyPanel();
       }
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
