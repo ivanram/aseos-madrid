@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -612,7 +612,7 @@ $('teleportBtn').addEventListener('click', () => {
   lastRecomputePos = null;
   recomputeDistances();
   updateUrgencyPanel();
-  if (radarOpen) renderRadarBlips();
+  if (radarOpen) refreshRadar();
   fitInitialView();
 });
 $('outsideDismiss').addEventListener('click', () => {
@@ -648,7 +648,7 @@ function readFilterUI() {
   filters.emergency = $('fEmergency').checked;
   saveFilters();
 }
-function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); if (radarOpen) renderRadarBlips(); }
+function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); if (radarOpen) refreshRadar(); }
 function openFilters() {
   closeSheet();
   $('fFav').checked = filters.favOnly;
@@ -1079,7 +1079,7 @@ function watchPosition() {
         lastRecomputePos = { lat: userPos.lat, lon: userPos.lon };
         recomputeDistances();
         updateUrgencyPanel();
-        if (radarOpen) renderRadarBlips();
+        if (radarOpen) refreshRadar();
       }
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
@@ -1170,7 +1170,7 @@ $('favBtn').addEventListener('click', () => {
   updateFavBtn();
   if (selected.marker) selected.marker.setIcon(nearestIcon(selected));
   if (filters.favOnly) { applyFilters(); rebuildMarkers(); }
-  if (radarOpen) renderRadarBlips();
+  if (radarOpen) refreshRadar();
 });
 
 $('shareBtn').addEventListener('click', async () => {
@@ -1360,22 +1360,60 @@ function retargetAR(p) {
    la brújula del móvil para que "arriba" sea siempre hacia donde apuntas
    (igual que en AR), mientras el barrido decorativo gira solo, aparte.
    ============================================================ */
-const RADAR_MAX_MIN = 30;                    // minutos: borde exterior del radar
-const RADAR_MAX_M = RADAR_MAX_MIN * 80;      // ritmo de paseo, igual que fmtWalkMin
-const RADAR_OUTER_PX = 140;                  // debe coincidir con el radio del anillo exterior del SVG
-const RADAR_BLIP_CAP = 150;                  // tope de puntos dibujados (legibilidad + rendimiento)
+const RADAR_OUTER_PX = 140;                   // debe coincidir con el radio máximo usado en el SVG
+const RADAR_BLIP_CAP = 150;                   // tope de puntos dibujados (legibilidad + rendimiento)
+const RADAR_SCALE_EXP = 0.55;                 // <1 = escala raíz: separa lo cercano, comprime lo lejano
+/* Fracciones fijas de anillo: con el rango por defecto (30') reproducen
+   exactamente 5'/10'/20'/30' como se pidió; al hacer zoom se re-escalan
+   proporcionalmente (p.ej. con rango 60' pasan a ser 10'/20'/40'/60'). */
+const RADAR_RING_FRACS = [1 / 6, 1 / 3, 2 / 3, 1];
+const RADAR_RANGE_PRESETS_MIN = [5, 10, 20, 30, 60, 120];
+let radarRangeIdx = 3;   // 30 min, el rango original
 let radarOpen = false;
+let radarMap = null;
+let lastRadarBearingUpdate = 0;
 
+function radarRangeMin() { return RADAR_RANGE_PRESETS_MIN[radarRangeIdx]; }
+function fmtRadarMin(min) {
+  const v = min < 10 ? Math.round(min * 2) / 2 : Math.round(min);
+  return (Number.isInteger(v) ? v : v.toFixed(1)) + '′';
+}
+function radarRatioToPx(ratio) { return Math.pow(Math.min(ratio, 1), RADAR_SCALE_EXP) * RADAR_OUTER_PX; }
 function radarPointFor(dist, brg) {
-  const r = Math.min(dist / RADAR_MAX_M, 1) * RADAR_OUTER_PX;
+  const r = radarRatioToPx(dist / (radarRangeMin() * 80));
   const rad = toRad(brg);
   return { x: r * Math.sin(rad), y: -r * Math.cos(rad) };
+}
+function updateRadarRings() {
+  const range = radarRangeMin();
+  const rings = document.querySelectorAll('.radar-ring');
+  const labels = document.querySelectorAll('.radar-ring-label');
+  RADAR_RING_FRACS.forEach((f, i) => {
+    const r = radarRatioToPx(f);
+    if (rings[i]) rings[i].setAttribute('r', r.toFixed(1));
+    if (labels[i]) { labels[i].setAttribute('x', (r + 3).toFixed(1)); labels[i].textContent = fmtRadarMin(range * f); }
+  });
+}
+function syncRadarZoomButtons() {
+  if ($('radarZoomIn')) $('radarZoomIn').disabled = radarRangeIdx === 0;
+  if ($('radarZoomOut')) $('radarZoomOut').disabled = radarRangeIdx === RADAR_RANGE_PRESETS_MIN.length - 1;
+}
+function setRadarRange(idx) {
+  radarRangeIdx = Math.max(0, Math.min(RADAR_RANGE_PRESETS_MIN.length - 1, idx));
+  syncRadarZoomButtons();
+  updateRadarRings();
+  refreshRadar();
 }
 function renderRadarBlips() {
   const g = $('radarBlipsGroup'); if (!g || !userPos) return;
   g.innerHTML = '';
-  const candidates = places.filter(p => p.dist != null && p.dist <= RADAR_MAX_M).slice(0, RADAR_BLIP_CAP);
-  const emptyEl = $('radarEmpty'); if (emptyEl) emptyEl.style.display = candidates.length ? 'none' : 'block';
+  const rangeM = radarRangeMin() * 80;
+  const candidates = places.filter(p => p.dist != null && p.dist <= rangeM).slice(0, RADAR_BLIP_CAP);
+  const emptyEl = $('radarEmpty');
+  if (emptyEl) {
+    emptyEl.style.display = candidates.length ? 'none' : 'block';
+    if (!candidates.length) emptyEl.textContent = t('radar_empty').replace('{min}', radarRangeMin());
+  }
   const ns = 'http://www.w3.org/2000/svg';
   for (const p of candidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
@@ -1397,7 +1435,46 @@ function updateRadarRotation() {
   const g = $('radarBlipsGroup'); if (!g) return;
   const heading = arHeading == null ? 0 : arHeading;
   g.setAttribute('transform', `rotate(${-heading})`);
+  updateRadarMapBearing();
 }
+function refreshRadar() {
+  renderRadarBlips();
+  updateRadarMap();
+}
+
+/* ---- Mapa real de fondo, atenuado por CSS, sin interacción propia: solo
+   decorativo/de referencia. Se crea una vez y se reutiliza (no se destruye
+   al cerrar el radar, para no recargar teselas cada vez). ---- */
+function radarMapZoomForRange() {
+  const wrap = $('radarWrap');
+  const pxWidth = (wrap && wrap.clientWidth) || 320;
+  const outerPxScreen = RADAR_OUTER_PX * (pxWidth / 320);
+  const mpp = (radarRangeMin() * 80) / outerPxScreen;
+  return Math.max(3, Math.min(19, Math.log2(156543.03 * Math.cos(toRad(userPos.lat)) / mpp)));
+}
+function ensureRadarMap() {
+  if (radarMap || !userPos || !$('radarMapBg')) return;
+  radarMap = L.map('radarMapBg', {
+    zoomControl: false, attributionControl: false, dragging: false, touchZoom: false,
+    scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
+    tap: false, fadeAnimation: false, zoomAnimation: false, inertia: false,
+    rotate: true, rotateControl: false, bearing: 0
+  }).setView([userPos.lat, userPos.lon], radarMapZoomForRange());
+  L.tileLayer(TILES.positron.url, { subdomains: TILES.positron.sub, maxZoom: 20 }).addTo(radarMap);
+}
+function updateRadarMap() {
+  if (!radarMap || !userPos) return;
+  radarMap.setView([userPos.lat, userPos.lon], radarMapZoomForRange(), { animate: false });
+}
+function updateRadarMapBearing() {
+  if (!radarMap || !radarMap.setBearing) return;
+  const now = Date.now();
+  if (now - lastRadarBearingUpdate < MAP_BEARING_THROTTLE) return;
+  lastRadarBearingUpdate = now;
+  const heading = arHeading == null ? 0 : arHeading;
+  radarMap.setBearing((mapBearingSign || 1) * heading);
+}
+
 function openRadarMode() {
   if (!userPos) return;
   closeSheet(); $('filterSheet').classList.remove('open'); closeList();
@@ -1405,8 +1482,12 @@ function openRadarMode() {
   $('radar').style.display = 'flex';
   arHeading = null;
   acquireCompass();
+  syncRadarZoomButtons();
+  updateRadarRings();
   renderRadarBlips();
   updateRadarRotation();
+  ensureRadarMap();
+  if (radarMap) { radarMap.invalidateSize(); updateRadarMap(); }
 }
 function closeRadarMode() {
   radarOpen = false;
@@ -1415,6 +1496,8 @@ function closeRadarMode() {
 }
 if ($('radarModeBtn')) $('radarModeBtn').addEventListener('click', openRadarMode);
 if ($('radarClose')) $('radarClose').addEventListener('click', closeRadarMode);
+if ($('radarZoomIn')) $('radarZoomIn').addEventListener('click', () => setRadarRange(radarRangeIdx - 1));
+if ($('radarZoomOut')) $('radarZoomOut').addEventListener('click', () => setRadarRange(radarRangeIdx + 1));
 if ($('radarBlipsGroup')) $('radarBlipsGroup').addEventListener('click', (e) => {
   const el = e.target.closest('.radar-blip'); if (!el) return;
   const p = allPlaces.find((x) => x.id === el.dataset.id);
@@ -1506,7 +1589,7 @@ function setDevLocationLive(lat, lon) {
   lastRecomputePos = null;
   recomputeDistances();
   updateUrgencyPanel();
-  if (radarOpen) renderRadarBlips();
+  if (radarOpen) refreshRadar();
   updateRecenterState();
   if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
   syncDevUI();

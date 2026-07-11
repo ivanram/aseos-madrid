@@ -51,7 +51,7 @@
     "urgency_detail": "Aseo gratis más cercano: {min} min andando",
     "urgency_alt": "{min} min: posible aseo de emergencia (de pago o con consumición)",
     "urgency_nodata": "Sin datos de aseos gratis cerca",
-    "radar_empty": "Nada en el radar (más de 30 min andando)",
+    "radar_empty": "Nada en el radar (más de {min} min andando)",
     "radar_caption": "Toca un punto para ver el detalle"
   }
 }

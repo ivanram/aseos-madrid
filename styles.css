@@ -171,16 +171,38 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
   flex-direction:column;align-items:center;justify-content:center;gap:14px;
   background:radial-gradient(circle at 50% 46%, #0c2016 0%, #071309 62%, #030805 100%);
 }
-.radar-wrap{ width:min(92vw,440px);aspect-ratio:1/1; }
-#radarSvg{ width:100%;height:100%;overflow:visible; }
-.radar-ring{ fill:none;stroke:rgba(80,240,150,.32);stroke-width:1; }
-.radar-ring-label{ fill:rgba(140,255,190,.55);font-size:9px;font-family:inherit; }
-.radar-sweep{ fill:url(#radarSweepGrad);opacity:.55; }
+.radar-wrap{
+  width:min(92vw,440px);aspect-ratio:1/1;position:relative;
+  border-radius:50%;overflow:hidden;
+  box-shadow:0 0 0 2px rgba(80,240,150,.25), 0 0 50px rgba(0,0,0,.65) inset;
+}
+/* Mapa real de fondo, apenas visible: mismo truco de invert+hue-rotate que
+   ya usan los temas de mapa oscuros de la app (ver MAP_THEMES en themes.js),
+   aquí llevado al verde del radar. Gira en JS junto con los blips. */
+#radarMapBg{
+  position:absolute;inset:0;
+  filter:invert(1) hue-rotate(70deg) brightness(.5) saturate(1.5) contrast(1.05);
+  opacity:.6;
+}
+#radarSvg{ position:absolute;inset:0;width:100%;height:100%;overflow:visible; }
+.radar-ring{ fill:none;stroke:rgba(140,255,190,.55);stroke-width:1; }
+.radar-ring-label{ fill:rgba(180,255,210,.75);font-size:9px;font-family:inherit; }
+.radar-sweep{ fill:url(#radarSweepGrad);opacity:.5; }
 .radar-heading-tick{ fill:#5df08f; }
 .radar-me{ fill:#eafff2;stroke:#0c2016;stroke-width:2; }
 .radar-blip{ cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1; }
 .radar-blip.fav{ stroke:#fff;stroke-width:1.6; }
 #radar .ar-close{ background:rgba(0,0,0,.4); }
+.radar-zoom{
+  position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:6;
+  display:flex;flex-direction:column;gap:8px;
+}
+.radar-zoom button{
+  width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;
+  background:rgba(0,0,0,.4);color:#eafff2;font-size:1.3rem;font-weight:700;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.radar-zoom button:disabled{ opacity:.3;cursor:default; }
 .radar-empty, .radar-caption{
   color:rgba(180,255,210,.65);font-size:.82rem;text-align:center;padding:0 30px;margin:0;
 }
