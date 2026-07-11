@@ -108,7 +108,7 @@ EPIGRAFE_A_TIPO = {
 CENTRO_COMERCIAL_HORARIO_ESTIMADO = "10:00-22:00"  # horario habitual regulado en España
 
 
-def http_get(url, data=None, timeout=180):
+def _http_get_once(url, data=None, timeout=180):
     req = urllib.request.Request(
         url,
         data=data,
@@ -118,23 +118,32 @@ def http_get(url, data=None, timeout=180):
         return resp.read()
 
 
+def http_get(url, data=None, timeout=180, retries=4, backoff_s=15):
+    """Reintenta con espera creciente ante fallos de red/timeout/errores 5xx —
+    en GitHub Actions es habitual que el runner tarde más o que datos.madrid.es
+    responda lento bajo carga, y sin reintentos el build fallaba entero."""
+    last_err = None
+    for attempt in range(retries):
+        try:
+            return _http_get_once(url, data=data, timeout=timeout)
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_err = e
+            is_http_error = isinstance(e, urllib.error.HTTPError)
+            if is_http_error and e.code not in (429, 500, 502, 503, 504):
+                raise
+            if attempt == retries - 1:
+                raise
+            wait = backoff_s * (attempt + 1)
+            print(f"  Fallo de red ({e}) en {url[:80]}..., reintentando en {wait}s...", file=sys.stderr)
+            time.sleep(wait)
+    raise last_err
+
+
 def overpass(query, retries=4, backoff_s=20):
     """La instancia pública de Overpass devuelve 429/504 a menudo bajo carga;
     reintenta con espera creciente antes de rendirse."""
     body = ("data=" + urllib.parse.quote(query)).encode("utf-8")
-    last_err = None
-    for attempt in range(retries):
-        try:
-            raw = http_get(OVERPASS_URL, data=body, timeout=120)
-            return json.loads(raw.decode("utf-8"))["elements"]
-        except urllib.error.HTTPError as e:
-            last_err = e
-            if e.code not in (429, 504) or attempt == retries - 1:
-                raise
-            wait = backoff_s * (attempt + 1)
-            print(f"  Overpass {e.code}, reintentando en {wait}s...", file=sys.stderr)
-            time.sleep(wait)
-    raise last_err
+    return json.loads(http_get(OVERPASS_URL, data=body, timeout=120, retries=retries, backoff_s=backoff_s).decode("utf-8"))["elements"]
 
 
 def haversine(lat1, lon1, lat2, lon2):

@@ -1,11 +1,12 @@
-name: Construir datos y desplegar a GitHub Pages
+name: Publicar en GitHub Pages
 
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "0 5 * * *"  # diario a las 05:00 UTC, para refrescar aseos/censo/OSM
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Actualizar datos de aseos"]
+    types: [completed]
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -18,24 +19,26 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Construir data/aseos.json
-        run: python scripts/build_data.py
-
       - name: Preparar sitio estático
         run: |
-          mkdir -p site/data
-          cp map.html site/index.html
+          mkdir -p site/data site/languages
+          cp index.html site/index.html
+          cp styles.css site/styles.css
+          cp themes.js site/themes.js
+          cp app.js site/app.js
+          cp sw.js site/sw.js
+          cp manifest.webmanifest site/manifest.webmanifest
+          cp version.json site/version.json
+          cp icon-192.png site/icon-192.png
+          cp icon-512.png site/icon-512.png
           cp data/aseos.json site/data/aseos.json
+          cp languages/*.json site/languages/
 
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3

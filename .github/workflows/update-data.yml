@@ -1,0 +1,36 @@
+name: Actualizar datos de aseos
+
+on:
+  schedule:
+    - cron: "0 5 * * *"      # todos los días a las 05:00 UTC
+  workflow_dispatch: {}       # permite ejecutarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write             # necesario para que pueda comitear data/aseos.json
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerar data/aseos.json
+        run: python scripts/build_data.py
+
+      - name: Publicar si hay cambios
+        run: |
+          if git diff --quiet -- data/aseos.json; then
+            echo "Sin cambios: nada que publicar."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/aseos.json
+            git commit -m "Datos de aseos actualizados automaticamente"
+            git push
+          fi

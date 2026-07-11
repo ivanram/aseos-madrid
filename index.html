@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#1f7fe0">
+  <title>Aseos de Madrid · Localizador de aseos y servicios</title>
+  <meta name="description" content="Encuentra el aseo público más cercano en Madrid, y bares, fastfood o centros comerciales como alternativa.">
+  <link rel="icon" href="icon-192.png?v=1" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png?v=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="styles.css?v=1.0.0">
+</head>
+<body>
+  <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
+       saturación original), así el tema Cyberpunk sale igual de vivo sobre
+       cualquier tesela base. Ver MAP_THEMES en themes.js. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="duotone-cyberpunk" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0"/>
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.08 0.86 0.42"/>
+        <feFuncG type="table" tableValues="0.0  0.08 0.94"/>
+        <feFuncB type="table" tableValues="0.22 0.75 1.0"/>
+      </feComponentTransfer>
+    </filter>
+  </svg>
+
+  <!-- ============ FUERA DE MADRID ============ -->
+  <div id="outsideModal">
+    <div class="sad-bear-wrap">
+      <img class="logo" src="icon-192.png?v=1" alt="">
+      <span class="tear">🚻</span>
+    </div>
+    <h1 data-i18n="outside_title">¡Ups!</h1>
+    <p class="desc" data-i18n="outside_text">No hay ningún servicio de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.</p>
+    <button class="btn" id="teleportBtn"><span data-i18n="outside_teleport">Teletransportarme a Madrid</span></button>
+    <button class="dismiss-link" id="outsideDismiss" data-i18n="outside_dismiss">Seguir de todas formas</button>
+  </div>
+
+  <!-- ============ LOADING (arranque silencioso) ============ -->
+  <section id="loading">
+    <img class="logo" src="icon-192.png?v=1" alt="">
+    <div class="load-row"><span class="spin"></span><span data-i18n="loading_text">Cargando aseos…</span></div>
+  </section>
+
+  <!-- ============ SPLASH (solo si falta permiso) ============ -->
+  <section id="splash">
+    <img class="logo" src="icon-192.png?v=1" alt="Icono de la app">
+    <h1 data-i18n="app_full">Aseos de Madrid</h1>
+    <p class="tag" data-i18n="splash_tag">¿Dónde está el aseo más cercano?</p>
+    <p class="desc" data-i18n="splash_desc">
+      Encuentra el aseo público más cercano, según los
+      <a href="https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>,
+      y bares, cadenas de comida rápida o centros comerciales cercanos como alternativa.
+    </p>
+    <p class="desc privacy" data-i18n="privacy1">
+      La ubicación se usa únicamente para ajustar el mapa y no se guarda de ningún modo: se usa solo en tu móvil.
+    </p>
+    <button id="askLocation" class="btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+      <span data-i18n="btn_allow">Permitir ubicación</span>
+    </button>
+    <p class="err" id="splashErr"></p>
+    <p class="version" id="appVersion">v1.0.0</p>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <div id="app">
+    <header class="bar">
+      <img src="icon-192.png?v=1" alt="">
+      <button class="t" id="aboutBtn" title="Acerca de" data-i18n="app_short">Aseos</button>
+      <button class="count" id="count" title="Filtrar" aria-label="Filtrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span id="countN">—</span>
+      </button>
+      <button class="iconbtn" id="listBtn" title="Ver lista" data-i18n-title="list_title" aria-label="Ver lista">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/><path d="M9 6h11M9 12h11M9 18h11"/></svg>
+      </button>
+      <button class="iconbtn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <div id="map"></div>
+
+    <div id="farOverlay">
+      <div class="far-msg">
+        <p data-i18n="far_text">Esta app solo muestra aseos y servicios en Madrid</p>
+        <button class="btn" id="farBackBtn"><span data-i18n="far_back">Volver</span></button>
+      </div>
+    </div>
+
+    <div id="emptyState" style="display:none">
+      <img class="logo" src="icon-192.png?v=1" alt="">
+      <h2 data-i18n="empty_h">Nada por aquí</h2>
+      <p data-i18n="empty_text">Ningún resultado con estos filtros. Prueba a quitar alguno.</p>
+      <button class="btn" id="emptyClearBtn"><span data-i18n="empty_clear">Quitar filtros</span></button>
+    </div>
+
+    <button class="mapctl mapmode" id="mapMode" title="Orientación del mapa" aria-label="Orientación del mapa">
+      <svg class="needle" viewBox="0 0 24 24"><polygon points="12,3 8,14 12,11.5 16,14" fill="#e25563"/><polygon points="12,21 8,10 12,12.5 16,10" fill="#9aa7b6"/></svg>
+    </button>
+    <button class="mapctl recenter" id="recenter" title="Centrar en mi posición" aria-label="Centrar en mi posición">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <button class="mapctl fitbtn" id="fitBtn" title="Encuadrar mi posición y el servicio" aria-label="Encuadrar el servicio" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M12 2.5 C12 2.5 4.5 11 4.5 16 a7.5 7.5 0 0 0 15 0 C19.5 11 12 2.5 12 2.5 Z" fill="#1f7fe0"/></svg>
+    </button>
+  </div>
+
+  <!-- ============ INFO SHEET ============ -->
+  <div id="sheet" role="dialog" aria-modal="true" aria-label="Información del servicio">
+    <div class="grip"></div>
+    <button class="close" id="sheetClose" aria-label="Cerrar">×</button>
+    <button class="fav" id="favBtn" aria-label="Marcar como favorito" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </button>
+    <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
+    </button>
+    <h2 class="name" id="sName">Aseo</h2>
+    <p class="addr" id="sAddr"></p>
+    <p class="visit-info" id="sVisits" style="display:none"></p>
+    <div class="chips" id="sChips"></div>
+    <div class="actions">
+      <button class="btn" id="btnRoute">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M6 17V9a4 4 0 0 1 4-4h4"/></svg>
+        <span data-i18n="route">Ruta andando</span>
+      </button>
+      <button class="btn ghost" id="btnAR">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1668bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+        <span data-i18n="ar_view">Ver con AR</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ FILTER SHEET ============ -->
+  <div id="filterSheet" role="dialog" aria-modal="true" aria-label="Filtrar">
+    <div class="grip"></div>
+    <button class="close" id="filterClose" aria-label="Cerrar">×</button>
+    <h2 class="name" data-i18n="filter_h">Filtrar</h2>
+    <div class="fgroup">
+      <div class="flabel" data-i18n="f_estado">Mostrar</div>
+      <label class="switch">
+        <input type="checkbox" id="fFav">
+        <span class="track"><span class="knob"></span></span>
+        <span class="stext" data-i18n="f_fav">Solo favoritos ❤️</span>
+      </label>
+      <label class="switch" style="margin-top:12px">
+        <input type="checkbox" id="fEmergency">
+        <span class="track"><span class="knob"></span></span>
+        <span class="stext" data-i18n="f_emergency">Servicios de emergencia (bares, fastfood, centros comerciales)</span>
+      </label>
+      <p class="set-hint" data-i18n="f_emergency_hint">Aseos oficiales y de comunidad siempre visibles. Los de emergencia son lugares donde probablemente haya aseo, pero no está confirmado.</p>
+    </div>
+    <button class="btn" id="filterApply"><span data-i18n="f_show">Ver</span> <span id="filterCount">—</span> <span data-i18n="f_fountains">servicios</span></button>
+  </div>
+
+  <!-- ============ LIST SHEET ============ -->
+  <div id="listSheet" role="dialog" aria-modal="true" aria-label="Servicios cercanos">
+    <div class="grip"></div>
+    <button class="close" id="listClose" aria-label="Cerrar">×</button>
+    <h2 class="name" data-i18n="list_h">Servicios cercanos</h2>
+    <input type="search" id="listSearch" class="list-search" placeholder="Buscar calle, nombre…" data-i18n-placeholder="search_ph">
+    <div class="list-scroll" id="listItems"></div>
+  </div>
+
+  <!-- ============ ABOUT ============ -->
+  <div id="about">
+    <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
+    <img class="logo" src="icon-192.png?v=1" alt="">
+    <h1 data-i18n="app_full">Aseos de Madrid</h1>
+    <p class="tag" data-i18n="splash_tag">¿Dónde está el aseo más cercano?</p>
+    <p class="desc" data-i18n="about_desc">
+      Aseos oficiales y censo de locales del <a href="https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0),
+      y aseos de comunidad de <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (ODbL).
+    </p>
+    <p class="desc privacy" data-i18n="privacy1">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
+    <p class="desc privacy" data-i18n="privacy2">La configuración de favoritos se guarda de forma local en tu navegador.</p>
+    <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
+    <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
+    <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.0</span></button>
+  </div>
+
+  <!-- ============ AJUSTES ============ -->
+  <div id="settings">
+    <button class="close" id="settingsClose" aria-label="Cerrar">×</button>
+    <h1 class="set-title" data-i18n="settings_h">Ajustes</h1>
+    <div class="set-scroll">
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_idioma">Idioma</div>
+        <div class="segment" id="setLang">
+          <button data-lang="es" class="active" data-i18n="lang_es">Español</button>
+          <button data-lang="en" data-i18n="lang_en">Inglés</button>
+          <button data-lang="other" data-i18n="lang_other">Otros</button>
+        </div>
+        <select id="setLangOther" class="lang-other-select" style="display:none"></select>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_tema">Tema</div>
+        <div class="segment" id="setTheme">
+          <button data-theme="light" data-i18n="set_claro">Claro</button>
+          <button data-theme="dark" data-i18n="set_oscuro">Oscuro</button>
+          <button data-theme="system" class="active" data-i18n="set_sistema">Sistema</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_color">Color de acento</div>
+        <div class="swatches" id="setAccent">
+          <button data-accent="blue" style="--sw:#1f7fe0" class="active" aria-label="Azul"></button>
+          <button data-accent="teal" style="--sw:#0ca7a0" aria-label="Turquesa"></button>
+          <button data-accent="green" style="--sw:#2faa4e" aria-label="Verde"></button>
+          <button data-accent="purple" style="--sw:#7c5cff" aria-label="Morado"></button>
+          <button data-accent="red" style="--sw:#e23b4e" aria-label="Rojo"></button>
+          <button data-accent="orange" style="--sw:#f08a1d" aria-label="Naranja"></button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_mapa">Mapa</div>
+        <div class="mapgrid" id="setMap">
+          <button data-map="moderno" class="active"><span class="mp mp-moderno"></span><span data-i18n="map_moderno">Moderno</span></button>
+          <button data-map="clasico"><span class="mp mp-clasico"></span><span data-i18n="map_clasico">Clásico</span></button>
+          <button data-map="minimalista"><span class="mp mp-min"></span><span data-i18n="map_minimalista">Minimalista</span></button>
+          <button data-map="cyberpunk"><span class="mp mp-cyber"></span><span data-i18n="map_cyberpunk">Cyberpunk</span></button>
+          <button data-map="colorido"><span class="mp mp-color"></span><span data-i18n="map_colorido">Colorido</span></button>
+          <button data-map="sepia"><span class="mp mp-sepia"></span><span data-i18n="map_sepia">Sepia</span></button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_estela">Estela de ubicación</div>
+        <label class="switch">
+          <input type="checkbox" id="fTrail" checked>
+          <span class="track"><span class="knob"></span></span>
+          <span class="stext" data-i18n="set_estela_on">Mostrar el rastro de tu movimiento</span>
+        </label>
+        <div id="trailLenRow" style="margin-top:16px">
+          <div class="flabel"><span data-i18n="set_estela_len">Longitud</span>: <span id="trailLenVal">5</span></div>
+          <input type="range" id="fTrailLen" min="3" max="10" value="5" class="slider">
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_datos">Datos · favoritos y ajustes</div>
+        <div class="set-row">
+          <button class="btn ghost" id="exportBtn" data-i18n="btn_export">Exportar</button>
+          <button class="btn ghost" id="importBtn" data-i18n="btn_import">Importar</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <p class="set-hint" data-i18n="set_datos_hint">Para llevar tu configuración a otro móvil o navegador.</p>
+      </div>
+      <div class="fgroup" id="devGroup" style="display:none">
+        <div class="flabel">🛠️ Modo desarrollador</div>
+        <div class="set-row">
+          <input type="text" id="devFakeLoc" class="dev-input" placeholder="lat,lon — p.ej. 40.4169,-3.7035">
+        </div>
+        <div class="set-row" style="margin-top:10px">
+          <button class="btn ghost" id="devFakeLocSol">📍 Simular Puerta del Sol</button>
+        </div>
+        <div class="set-row" style="margin-top:10px">
+          <button class="btn ghost" id="devFakeLocApply">Simular ubicación</button>
+          <button class="btn ghost" id="devFakeLocClear">Usar GPS real</button>
+        </div>
+        <p class="set-hint" id="devFakeLocStatus"></p>
+        <button class="btn danger" id="devWipeBtn" style="margin-top:16px;width:100%">Borrar todos los datos y empezar de cero</button>
+      </div>
+      <footer class="set-footer" data-i18n="footer">Creado por Ivan con <span class="heart" id="footerHeart">❤️</span> y mucha IA</footer>
+    </div>
+  </div>
+
+  <!-- ============ AR OVERLAY ============ -->
+  <div id="ar">
+    <video id="arVideo" autoplay muted playsinline></video>
+    <div class="veil"></div>
+    <button class="ar-close" id="arClose" aria-label="Salir de AR">×</button>
+    <div class="ar-stage">
+      <div class="ar-arrow" id="arArrow">
+        <svg viewBox="0 0 100 100"><path d="M50 6 L74 64 L50 50 L26 64 Z" fill="#3ea8ff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div id="arRadar"></div>
+    <div class="ar-target" id="arTarget">
+      <div class="ar-target-pin">
+        <svg viewBox="0 0 34 42"><path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z" fill="#19b3ff" stroke="#fff" stroke-width="2.5"/><path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/></svg>
+      </div>
+      <div class="ar-target-d" id="arTargetDist"></div>
+    </div>
+    <div class="ar-info">
+      <div class="d" id="arDist">—</div>
+      <div class="n" id="arName"></div>
+      <div class="hint" id="arHint">Gira el móvil hasta alinear la flecha hacia arriba</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
+  <script src="themes.js?v=1.0.0"></script>
+  <script src="app.js?v=1.0.0"></script>
+</body>
+</html>
