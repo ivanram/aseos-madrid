@@ -18,7 +18,6 @@ const FILTERS_KEY = 'aseos_filters_v1';
 const DEV_UNLOCKED_KEY = 'aseos_dev_unlocked_v1';
 const DEV_FAKELOC_KEY = 'aseos_dev_fakeloc_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos';
-const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si el servicio está pegado
 const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
 const HEADING_JUMP = 100;        // grados: cambio brusco = ruido del sensor → lo amortiguamos
@@ -47,11 +46,10 @@ const EMERGENCY_TIPOS = new Set(['bar', 'fastfood', 'centro_comercial']);
 function tipoLabel(t) { return TIPO_LABEL[t] || t; }
 
 /* ---------- State ---------- */
-let map, userMarker, accCircle, placeLayer;
+let map, userMarker, accCircle, placeCluster, selectedMarker;
 let allPlaces = [];       // todo lo cargado del JSON
 let corePlaces = [];      // aseo_oficial + aseo_comunidad + estacion (para el aviso de "fuera de Madrid", barato de recorrer)
 let places = [];          // tras aplicar filtros, ordenado por cercanía
-const shown = new Set();
 let userPos = null;
 let geoWatchId = null;
 let selected = null;
@@ -215,7 +213,7 @@ function applyAccent() {
   const s = document.documentElement.style;
   s.setProperty('--blue', a.main); s.setProperty('--blue-d', a.d); s.setProperty('--blue-l', a.l);
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main);
-  if (map) { for (const p of shown) if (p.marker) p.marker.setIcon(p === selected ? nearestIcon(p) : placeIcon(p)); renderTrail(); }
+  if (map) { refreshAllIcons(); renderTrail(); }
 }
 
 /* ---- Estela de ubicación (rastro de puntos que se difuminan) ---- */
@@ -275,7 +273,7 @@ function importData(file) {
       if (d.settings && typeof d.settings === 'object') { settings = Object.assign(settings, d.settings); saveSettings(); applyTheme(); applyMapTheme(); }
       if (d.visits && typeof d.visits === 'object') { visits = d.visits; saveVisits(); }
       if (typeof d.target === 'string') { try { localStorage.setItem(TARGET_KEY, d.target); } catch (_) {} }
-      if (map) { for (const p of shown) if (p.marker) p.marker.setIcon(p === selected ? nearestIcon(p) : placeIcon(p)); applyFilters(); renderMarkers(); }
+      if (map) { refreshAllIcons(); applyFilters(); rebuildMarkers(); }
       syncSettingsUI();
       toast(t('imported'));
     } catch (e) { toast(t('bad_file')); }
@@ -556,7 +554,6 @@ $('teleportBtn').addEventListener('click', () => {
   if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc); }
   lastRecomputePos = null;
   recomputeDistances();
-  renderMarkers();
   fitInitialView();
 });
 $('outsideDismiss').addEventListener('click', () => {
@@ -585,14 +582,14 @@ function applyFilters() {
 }
 if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
   filters.favOnly = false; filters.emergency = false;
-  saveFilters(); applyFilters(); renderMarkers(); fitInitialView();
+  saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView();
 });
 function readFilterUI() {
   filters.favOnly = $('fFav').checked;
   filters.emergency = $('fEmergency').checked;
   saveFilters();
 }
-function onFilterChange() { readFilterUI(); applyFilters(); renderMarkers(); }
+function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); }
 function openFilters() {
   closeSheet();
   $('fFav').checked = filters.favOnly;
@@ -722,10 +719,17 @@ function initMap() {
     radius: userPos.acc || 30, color: '#1f7fe0', weight: 1, opacity: .3, fillOpacity: .08
   }).addTo(map);
 
-  placeLayer = L.layerGroup().addTo(map);
+  /* Clustering (Leaflet.markercluster) en vez del sistema de rejilla+tope de
+     Fuentes de Madrid: con hasta ~13.800 puntos (bares/fastfood incluidos) va
+     mucho mejor — probado en el mapa de debug antes de traerlo aquí. Como el
+     propio plugin decide qué mostrar según el zoom, no hace falta recalcular
+     nada en cada movimiento del mapa (a diferencia del sistema anterior). */
+  placeCluster = L.markerClusterGroup({
+    disableClusteringAtZoom: 17, spiderfyOnMaxZoom: false, showCoverageOnHover: false,
+    chunkedLoading: true, maxClusterRadius: 60
+  }).addTo(map);
   applyFilters();
 
-  map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('moveend zoomend', debounce(saveView, 400));
   map.on('moveend zoomend', updateRecenterState);
   map.on('moveend zoomend', debounce(prefetchTileRing, 150));
@@ -745,7 +749,7 @@ function initMap() {
     map.invalidateSize();
     const resumed = !freshSession && (restoreSheetIfWasOpen() || restoreSavedView());
     if (!openSharedPlaceIfAny() && !resumed) fitInitialView();
-    renderMarkers(); updateModeButton(); updateFitBtn(); updateRecenterState(); updateFarOverlay();
+    rebuildMarkers(); updateModeButton(); updateFitBtn(); updateRecenterState(); updateFarOverlay();
   });
 }
 
@@ -788,37 +792,35 @@ function openSharedPlaceIfAny() {
   return true;
 }
 
-/* ---------- marcadores: solo lo visible, con tope ---------- */
-function iconFor(p) { return p === selected ? nearestIcon(p) : placeIcon(p); }
-const CLUSTER_CELL = 44;
-
-function renderMarkers() {
-  if (!map || !placeLayer) return;
-  const b = map.getBounds().pad(0.2);
-  const z = map.getZoom();
-  const seen = new Set();
-  let inView = [];
+/* ---------- marcadores: todos los del filtro actual, agrupados por clúster ---------- */
+function refreshAllIcons() {
   for (const p of places) {
-    if (!b.contains([p.lat, p.lon])) continue;
+    if (p.marker) p.marker.setIcon(p === selected ? nearestIcon(p) : placeIcon(p));
+  }
+}
+function makeMarker(p, isSelected) {
+  const m = L.marker([p.lat, p.lon], { icon: isSelected ? nearestIcon(p) : placeIcon(p) })
+    .on('click', () => handleMarkerClick(p));
+  if (isSelected) m.setZIndexOffset(700);
+  p.marker = m;
+  return m;
+}
+/* Reconstruye todos los marcadores del filtro actual: el seleccionado queda
+   fuera del clúster (marcador propio, siempre visible sin agrupar); el resto
+   entra de golpe en el clúster (addLayers en bloque, rápido incluso con
+   miles de puntos), que ya decide solo qué agrupar según el zoom. */
+function rebuildMarkers() {
+  if (!map || !placeCluster) return;
+  placeCluster.clearLayers();
+  if (selectedMarker) { map.removeLayer(selectedMarker); selectedMarker = null; }
+  const markers = [];
+  for (const p of places) {
     if (p === selected) continue;
-    const pt = map.project([p.lat, p.lon], z);
-    const key = ((pt.x / CLUSTER_CELL) | 0) + ':' + ((pt.y / CLUSTER_CELL) | 0);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    inView.push(p);
+    markers.push(makeMarker(p, false));
   }
-  if (inView.length > MARKER_CAP) inView.length = MARKER_CAP;
-  if (selected && places.indexOf(selected) !== -1) inView.push(selected);
-  const need = new Set(inView);
-  for (const p of Array.from(shown)) {
-    if (!need.has(p)) { if (p.marker) placeLayer.removeLayer(p.marker); p.marker = null; shown.delete(p); }
-  }
-  for (const p of inView) {
-    if (!p.marker) {
-      p.marker = L.marker([p.lat, p.lon], { icon: iconFor(p) }).on('click', () => handleMarkerClick(p));
-      if (p === selected) p.marker.setZIndexOffset(700);
-      placeLayer.addLayer(p.marker); shown.add(p);
-    }
+  placeCluster.addLayers(markers);
+  if (selected && places.indexOf(selected) !== -1) {
+    selectedMarker = makeMarker(selected, true).addTo(map);
   }
 }
 
@@ -827,9 +829,14 @@ function setTarget(p) {
   const prev = selected;
   selected = p;
   try { localStorage.setItem(TARGET_KEY, p ? favKey(p) : ''); } catch (_) {}
-  if (prev && prev !== p && prev.marker) { prev.marker.setIcon(placeIcon(prev)); prev.marker.setZIndexOffset(0); }
-  renderMarkers();
-  if (p && p.marker) { p.marker.setIcon(nearestIcon(p)); p.marker.setZIndexOffset(700); }
+  if (prev && prev !== p) {
+    if (selectedMarker) { map.removeLayer(selectedMarker); selectedMarker = null; }
+    if (places.indexOf(prev) !== -1) placeCluster.addLayer(makeMarker(prev, false));
+  }
+  if (p) {
+    if (p.marker && placeCluster.hasLayer(p.marker)) placeCluster.removeLayer(p.marker);
+    selectedMarker = makeMarker(p, true).addTo(map);
+  }
   updateFitBtn();
 }
 function restoreTarget() {
@@ -1098,7 +1105,7 @@ $('favBtn').addEventListener('click', () => {
   toggleFav(selected);
   updateFavBtn();
   if (selected.marker) selected.marker.setIcon(nearestIcon(selected));
-  if (filters.favOnly) { applyFilters(); renderMarkers(); }
+  if (filters.favOnly) { applyFilters(); rebuildMarkers(); }
 });
 
 $('shareBtn').addEventListener('click', async () => {
