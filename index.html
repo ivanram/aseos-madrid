@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.2">
+  <link rel="stylesheet" href="styles.css?v=1.0.3">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.2</p>
+    <p class="version" id="appVersion">v1.0.3</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -120,6 +120,9 @@
     </button>
     <button class="mapctl fitbtn" id="fitBtn" title="Encuadrar mi posición y el servicio" aria-label="Encuadrar el servicio" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M12 2.5 C12 2.5 4.5 11 4.5 16 a7.5 7.5 0 0 0 15 0 C19.5 11 12 2.5 12 2.5 Z" fill="#1f7fe0"/></svg>
+    </button>
+    <button class="mapctl radarbtn" id="radarModeBtn" title="Modo radar" aria-label="Modo radar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 12 L18 7"/></svg>
     </button>
 
     <!-- Solo aparece con el modo desarrollador activo (clic derecho en el mapa) -->
@@ -200,7 +203,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.2</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.3</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -311,12 +314,47 @@
     </div>
   </div>
 
+  <!-- ============ MODO RADAR ============ -->
+  <div id="radar">
+    <button class="ar-close" id="radarClose" aria-label="Salir del radar">×</button>
+    <div class="radar-wrap">
+      <svg id="radarSvg" viewBox="-160 -160 320 320">
+        <defs>
+          <radialGradient id="radarSweepGrad" cx="0" cy="0" r="140" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#5df08f" stop-opacity=".05"/>
+            <stop offset="100%" stop-color="#5df08f" stop-opacity=".55"/>
+          </radialGradient>
+        </defs>
+        <circle r="35" class="radar-ring"/>
+        <circle r="70" class="radar-ring"/>
+        <circle r="105" class="radar-ring"/>
+        <circle r="140" class="radar-ring"/>
+        <text x="38" y="4" class="radar-ring-label">5′</text>
+        <text x="73" y="4" class="radar-ring-label">10′</text>
+        <text x="108" y="4" class="radar-ring-label">20′</text>
+        <text x="143" y="4" class="radar-ring-label">30′</text>
+
+        <path class="radar-sweep" d="M0,0 L0,-140 A140,140 0 0 1 34,-136 Z">
+          <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="4s" repeatCount="indefinite"/>
+        </path>
+
+        <polygon class="radar-heading-tick" points="0,-151 -6,-137 6,-137"/>
+
+        <g id="radarBlipsGroup"></g>
+
+        <circle class="radar-me" r="6" cx="0" cy="0"/>
+      </svg>
+    </div>
+    <p class="radar-empty" id="radarEmpty" style="display:none" data-i18n="radar_empty">Nada en el radar (más de 30 min andando)</p>
+    <p class="radar-caption" data-i18n="radar_caption">Toca un punto para ver el detalle</p>
+  </div>
+
   <div id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.2"></script>
-  <script src="app.js?v=1.0.2"></script>
+  <script src="themes.js?v=1.0.3"></script>
+  <script src="app.js?v=1.0.3"></script>
 </body>
 </html>

@@ -146,7 +146,7 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 #ar{position:fixed;inset:0;z-index:900;display:none;background:#000}
 #ar video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #ar .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 30%,transparent 70%,rgba(0,0,0,.5))}
-#ar .ar-close{
+.ar-close{
   position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:5;
   border:none;background:rgba(0,0,0,.5);color:#fff;backdrop-filter:blur(6px);
   width:44px;height:44px;border-radius:50%;font-size:1.3rem;cursor:pointer;
@@ -164,6 +164,27 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 #ar .ar-info .n{opacity:.92;margin-top:6px;font-weight:600}
 #ar .ar-info .hint{opacity:.7;font-size:.82rem;margin-top:10px;padding:0 30px}
 #ar .ar-arrived{color:#7CFFB0}
+
+/* ---------- Modo radar ---------- */
+#radar{
+  position:fixed;inset:0;z-index:910;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(circle at 50% 46%, #0c2016 0%, #071309 62%, #030805 100%);
+}
+.radar-wrap{ width:min(92vw,440px);aspect-ratio:1/1; }
+#radarSvg{ width:100%;height:100%;overflow:visible; }
+.radar-ring{ fill:none;stroke:rgba(80,240,150,.32);stroke-width:1; }
+.radar-ring-label{ fill:rgba(140,255,190,.55);font-size:9px;font-family:inherit; }
+.radar-sweep{ fill:url(#radarSweepGrad);opacity:.55; }
+.radar-heading-tick{ fill:#5df08f; }
+.radar-me{ fill:#eafff2;stroke:#0c2016;stroke-width:2; }
+.radar-blip{ cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1; }
+.radar-blip.fav{ stroke:#fff;stroke-width:1.6; }
+#radar .ar-close{ background:rgba(0,0,0,.4); }
+.radar-empty, .radar-caption{
+  color:rgba(180,255,210,.65);font-size:.82rem;text-align:center;padding:0 30px;margin:0;
+}
+.radar-caption{ color:rgba(180,255,210,.4); }
 
 /* ---------- Toast / loader ---------- */
 #toast{
@@ -335,6 +356,8 @@ header.bar .t:active{opacity:.6}
 #mapMode{bottom:150px}
 #fitBtn{bottom:208px}
 #fitBtn svg{width:26px;height:26px}
+#radarModeBtn{bottom:266px}
+#radarModeBtn svg{stroke:var(--blue-d)}
 #mapMode .needle{transition:transform .25s ease-out}
 #mapMode.active{background:var(--blue)}
 #mapMode.active .needle polygon:last-child{fill:#bfe0ff}

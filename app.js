@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.3';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -612,6 +612,7 @@ $('teleportBtn').addEventListener('click', () => {
   lastRecomputePos = null;
   recomputeDistances();
   updateUrgencyPanel();
+  if (radarOpen) renderRadarBlips();
   fitInitialView();
 });
 $('outsideDismiss').addEventListener('click', () => {
@@ -647,7 +648,7 @@ function readFilterUI() {
   filters.emergency = $('fEmergency').checked;
   saveFilters();
 }
-function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); }
+function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); if (radarOpen) renderRadarBlips(); }
 function openFilters() {
   closeSheet();
   $('fFav').checked = filters.favOnly;
@@ -1078,6 +1079,7 @@ function watchPosition() {
         lastRecomputePos = { lat: userPos.lat, lon: userPos.lon };
         recomputeDistances();
         updateUrgencyPanel();
+        if (radarOpen) renderRadarBlips();
       }
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
@@ -1168,6 +1170,7 @@ $('favBtn').addEventListener('click', () => {
   updateFavBtn();
   if (selected.marker) selected.marker.setIcon(nearestIcon(selected));
   if (filters.favOnly) { applyFilters(); rebuildMarkers(); }
+  if (radarOpen) renderRadarBlips();
 });
 
 $('shareBtn').addEventListener('click', async () => {
@@ -1279,6 +1282,7 @@ function onOrient(e) {
     updateHeadingCone();
   }
   updateAR();
+  if (radarOpen) updateRadarRotation();
 }
 function updateAR() {
   if (!selected || !userPos || $('ar').style.display !== 'block') return;
@@ -1349,6 +1353,76 @@ function retargetAR(p) {
   arArrivedVibrated = false;
   updateAR();
 }
+
+/* ============================================================
+   MODO RADAR — pantalla completa, estilo sonar. Los aseos se dibujan como
+   puntos según distancia (radio) y rumbo (ángulo); el grupo entero gira con
+   la brújula del móvil para que "arriba" sea siempre hacia donde apuntas
+   (igual que en AR), mientras el barrido decorativo gira solo, aparte.
+   ============================================================ */
+const RADAR_MAX_MIN = 30;                    // minutos: borde exterior del radar
+const RADAR_MAX_M = RADAR_MAX_MIN * 80;      // ritmo de paseo, igual que fmtWalkMin
+const RADAR_OUTER_PX = 140;                  // debe coincidir con el radio del anillo exterior del SVG
+const RADAR_BLIP_CAP = 150;                  // tope de puntos dibujados (legibilidad + rendimiento)
+let radarOpen = false;
+
+function radarPointFor(dist, brg) {
+  const r = Math.min(dist / RADAR_MAX_M, 1) * RADAR_OUTER_PX;
+  const rad = toRad(brg);
+  return { x: r * Math.sin(rad), y: -r * Math.cos(rad) };
+}
+function renderRadarBlips() {
+  const g = $('radarBlipsGroup'); if (!g || !userPos) return;
+  g.innerHTML = '';
+  const candidates = places.filter(p => p.dist != null && p.dist <= RADAR_MAX_M).slice(0, RADAR_BLIP_CAP);
+  const emptyEl = $('radarEmpty'); if (emptyEl) emptyEl.style.display = candidates.length ? 'none' : 'block';
+  const ns = 'http://www.w3.org/2000/svg';
+  for (const p of candidates) {
+    const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
+    const { x, y } = radarPointFor(p.dist, brg);
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', x.toFixed(1));
+    c.setAttribute('cy', y.toFixed(1));
+    c.setAttribute('r', p === selected ? 7 : 4.5);
+    c.setAttribute('fill', pinColor(p));
+    c.setAttribute('class', 'radar-blip' + (isFav(p) ? ' fav' : ''));
+    c.dataset.id = p.id;
+    const title = document.createElementNS(ns, 'title');
+    title.textContent = p.nombre || tipoLabel(p.tipo);
+    c.appendChild(title);
+    g.appendChild(c);
+  }
+}
+function updateRadarRotation() {
+  const g = $('radarBlipsGroup'); if (!g) return;
+  const heading = arHeading == null ? 0 : arHeading;
+  g.setAttribute('transform', `rotate(${-heading})`);
+}
+function openRadarMode() {
+  if (!userPos) return;
+  closeSheet(); $('filterSheet').classList.remove('open'); closeList();
+  radarOpen = true;
+  $('radar').style.display = 'flex';
+  arHeading = null;
+  acquireCompass();
+  renderRadarBlips();
+  updateRadarRotation();
+}
+function closeRadarMode() {
+  radarOpen = false;
+  $('radar').style.display = 'none';
+  releaseCompass();
+}
+if ($('radarModeBtn')) $('radarModeBtn').addEventListener('click', openRadarMode);
+if ($('radarClose')) $('radarClose').addEventListener('click', closeRadarMode);
+if ($('radarBlipsGroup')) $('radarBlipsGroup').addEventListener('click', (e) => {
+  const el = e.target.closest('.radar-blip'); if (!el) return;
+  const p = allPlaces.find((x) => x.id === el.dataset.id);
+  if (!p) return;
+  closeRadarMode();
+  map.setView([p.lat, p.lon], 17, { animate: true });
+  openSheet(p);
+});
 
 /* ============================================================
    UI wiring + BOOT
@@ -1432,6 +1506,7 @@ function setDevLocationLive(lat, lon) {
   lastRecomputePos = null;
   recomputeDistances();
   updateUrgencyPanel();
+  if (radarOpen) renderRadarBlips();
   updateRecenterState();
   if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
   syncDevUI();
