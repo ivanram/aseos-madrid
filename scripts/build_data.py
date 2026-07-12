@@ -9,8 +9,9 @@ Prioridad de fuentes (de más a menos fiable):
   2. Ayuntamiento de Madrid - "Censo de Locales, Actividades y Terrazas" (oficial,
      actualizado a DIARIO, con estado real Abierto/Cerrado/Baja) (CC BY 4.0)
      https://datos.madrid.es/dataset/200085-0-censo-locales
-     -> tipo "bar" (bares, cafeterías, tabernas...) y "fastfood" (comida rápida),
-        filtrando solo locales con situacion = "Abierto".
+     -> tipo "bar" (bares, tabernas...), "cafeteria" (cafeterías, chocolaterías,
+        ciber-cafés) y "fastfood" (comida rápida), filtrando solo locales con
+        situacion = "Abierto".
      -> tipo "centro_comercial": derivado de las "agrupaciones" de tipo
         "Centro Comercial" que aparecen en el propio censo (no existe un dataset
         dedicado a centros comerciales en el portal).
@@ -98,9 +99,9 @@ EPIGRAFE_A_TIPO = {
     "BAR ESPECIAL SIN ACTUACIONES": "bar",
     "BAR ESPECIAL CON ACTUACIONES": "bar",
     "TABERNA": "bar",
-    "CAFETERIA": "bar",
-    "CHOCOLATERIA/SALON DE TE Y HELADERIA": "bar",
-    "CIBER-CAFE": "bar",
+    "CAFETERIA": "cafeteria",
+    "CHOCOLATERIA/SALON DE TE Y HELADERIA": "cafeteria",
+    "CIBER-CAFE": "cafeteria",
     "RESTAURANTES DE COMIDA RAPIDA": "fastfood",
     "AUTOSERVICIO DE RESTAURACION": "fastfood",
 }
@@ -534,8 +535,9 @@ def main():
     print("Descargando censo de locales (bar/fastfood/centro comercial)...", file=sys.stderr)
     bar_fastfood_records, centro_comercial_records, estimaciones = fetch_censo_locales_hosteleria()
     n_bar = sum(1 for r in bar_fastfood_records if r["tipo"] == "bar")
+    n_cafeteria = sum(1 for r in bar_fastfood_records if r["tipo"] == "cafeteria")
     n_fastfood = sum(1 for r in bar_fastfood_records if r["tipo"] == "fastfood")
-    print(f"  {n_bar} bar/cafeteria, {n_fastfood} fastfood, {len(centro_comercial_records)} centros comerciales", file=sys.stderr)
+    print(f"  {n_bar} bar, {n_cafeteria} cafeteria, {n_fastfood} fastfood, {len(centro_comercial_records)} centros comerciales", file=sys.stderr)
     print(f"  Horarios estimados por categoria (del propio censo): {estimaciones}", file=sys.stderr)
 
     estacion_records = []
@@ -566,6 +568,7 @@ def main():
             "aseo_oficial": len(ayto_records),
             "aseo_comunidad": len(comunidad_records),
             "bar": n_bar,
+            "cafeteria": n_cafeteria,
             "fastfood": n_fastfood,
             "centro_comercial": len(centro_comercial_records),
             "estacion": len(estacion_records),

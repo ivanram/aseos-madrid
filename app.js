@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.5';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -30,19 +30,19 @@ const MADRID_SOL = { lat: 40.4168, lon: -3.7038 };
 /* ---------- Categorías ---------- */
 const TIPO_LABEL = {
   aseo_oficial: 'Aseo público', aseo_comunidad: 'Aseo (comunidad)',
-  bar: 'Bar / Cafetería', fastfood: 'Comida rápida',
+  bar: 'Bar', cafeteria: 'Cafetería', fastfood: 'Comida rápida',
   centro_comercial: 'Centro comercial', estacion: 'Estación'
 };
 const TIPO_EMOJI = {
-  aseo_oficial: '🚻', aseo_comunidad: '🚻', bar: '🍺', fastfood: '🍔',
+  aseo_oficial: '🚻', aseo_comunidad: '🚻', bar: '🍺', cafeteria: '☕', fastfood: '🍔',
   centro_comercial: '🛍️', estacion: '🚉'
 };
 /* aseo_oficial/aseo_comunidad siguen el color de acento elegido en ajustes
    (como las fuentes); el resto de categorías llevan un color fijo propio,
    para distinguirlas de un vistazo como "candidatas", no "aseo confirmado". */
-const TIPO_COLOR_FIJO = { bar: '#f59f00', fastfood: '#e64980', centro_comercial: '#12b886', estacion: '#7048e8' };
+const TIPO_COLOR_FIJO = { bar: '#F2A007', cafeteria: '#8B5A32', fastfood: '#E94378', centro_comercial: '#12b886', estacion: '#7048e8' };
 const PAGO_LABEL = { gratis: 'Gratis', pago: 'De pago', consumicion: 'Con consumición', desconocido: 'Pago desconocido' };
-const EMERGENCY_TIPOS = new Set(['bar', 'fastfood', 'centro_comercial']);
+const EMERGENCY_TIPOS = new Set(['bar', 'cafeteria', 'fastfood', 'centro_comercial']);
 function tipoLabel(t) { return TIPO_LABEL[t] || t; }
 
 /* ---------- Panel de urgencia: minutos al aseo gratis más cercano ----------
@@ -728,34 +728,53 @@ function userIcon() {
     </div>`
   });
 }
-function dropSvg(w, h, color, inner) {
-  return `<svg width="${w}" height="${h}" viewBox="0 0 34 42">
-      <path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z" fill="${color}" stroke="#fff" stroke-width="2.5"/>
-      ${inner}</svg>`;
-}
-const DROP_PLAIN = `<path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/>`;
-const HEART_INNER = `<path d="M17 29 c-4.6 -3.6 -7.4 -6.1 -7.4 -9.4 a3.6 3.6 0 0 1 7.4 -1.4 a3.6 3.6 0 0 1 7.4 1.4 c0 3.3 -2.8 5.8 -7.4 9.4 z" fill="#fff"/>`;
-/* placeholder deliberado: mismo pin para todas las categorías, solo cambia el
-   color (acento para aseos, color fijo para el resto). Se afinará más adelante. */
+/* ============================================================
+   ICONOS DE PIN — pictograma de aseo + insignia de categoría.
+   Diseño acordado con el usuario a partir de un set generado con ChatGPT,
+   pulido a mano (figuras centradas por cabeza, no por caja; separación
+   entre ellas; subidas para compensar que el pin acaba en punta abajo;
+   taza de café reducida; pan de la hamburguesa curvo).
+   ============================================================ */
+const PIN_PATH = 'M128 12c-59.6 0-108 48.4-108 108 0 81 108 128 108 128s108-47 108-128C236 60.4 187.6 12 128 12Z';
+const PIN_FIGURES =
+  '<g fill="#fff" transform="translate(-2 -16)"><circle cx="96" cy="83" r="13"/><path d="M76 105a12 12 0 0 1 12-12h16a12 12 0 0 1 12 12v48a8 8 0 0 1-8 8h-2v39a9 9 0 0 1-18 0v-39h-4a8 8 0 0 1-8-8Z"/></g>' +
+  '<g fill="#fff" transform="translate(18 -16)"><circle cx="144" cy="83" r="13"/><path d="M136 93h16c7 0 11 5 13 12l15 48c2 6-2 11-8 11h-7v36a9 9 0 0 1-18 0v-36h-6v36a9 9 0 0 1-18 0v-36h-7c-6 0-10-5-8-11l15-48c2-7 6-12 13-12Z"/></g>';
+const PIN_HEART = '<path fill="#fff" d="M198 214c-5-5-22-16-22-29 0-15 18-20 22-8 4-12 22-7 22 8 0 13-17 24-22 29Z"/>';
+const PIN_BADGE_UNCONFIRMED = '<path fill="none" stroke="#fff" stroke-linecap="round" stroke-width="10" d="M187 178c1-11 23-13 23 2 0 10-12 10-12 20"/><circle cx="198" cy="214" r="5" fill="#fff"/>';
+const PIN_BADGE = {
+  aseo_oficial: '<path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="11" d="m180 190 12 12 24-27"/>',
+  aseo_comunidad: PIN_BADGE_UNCONFIRMED,
+  estacion: PIN_BADGE_UNCONFIRMED,
+  centro_comercial: PIN_BADGE_UNCONFIRMED,
+  bar: '<g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"><path d="M181 174h34l-5 15c-4 12-20 12-24 0Z"/><path d="M198 198v15m-12 0h24"/></g>',
+  cafeteria: '<g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" transform="translate(198 190) scale(0.8) translate(-201 -188.8)"><path d="M181 184h27v19c0 7-5 11-12 11h-3c-7 0-12-4-12-11Z"/><path d="M208 189h4c11 0 11 14 0 14h-4m-18-27c-5-6 5-7 0-13m13 13c-5-6 5-7 0-13"/></g>',
+  fastfood: '<g stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7" fill="none"><path d="M184 183 Q198 170 212 183"/><line x1="181" y1="192" x2="215" y2="192"/><line x1="181" y1="202" x2="215" y2="202"/></g>'
+};
 function pinColor(p) {
   return TIPO_COLOR_FIJO[p.tipo] || ACCENT;
 }
+function pinSvgMarkup(p) {
+  const fav = isFav(p);
+  const color = fav ? '#00bcd4' : pinColor(p);
+  const badge = fav ? PIN_HEART : (PIN_BADGE[p.tipo] || '');
+  return `<svg viewBox="0 0 256 256">` +
+    `<path fill="${color}" d="${PIN_PATH}"/>` +
+    PIN_FIGURES +
+    `<circle cx="198" cy="190" r="37" fill="${color}" stroke="#fff" stroke-width="8"/>` +
+    badge +
+    `</svg>`;
+}
 function placeIcon(p) {
   const off = isLikelyOpenNow(p) === false;
-  let color, inner;
-  if (isFav(p)) { color = off ? '#7fb6c0' : '#00bcd4'; inner = HEART_INNER; }
-  else { color = pinColor(p); inner = DROP_PLAIN; }
   return L.divIcon({
-    className: '', iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
-    html: `<div class="fountain-pin${off ? ' off' : ''}">${dropSvg(34, 42, color, inner)}</div>`
+    className: '', iconSize: [38, 42], iconAnchor: [19, 41], popupAnchor: [0, -38],
+    html: `<div class="fountain-pin${off ? ' off' : ''}">${pinSvgMarkup(p)}</div>`
   });
 }
 function nearestIcon(p) {
-  const inner = isFav(p) ? HEART_INNER : DROP_PLAIN;
-  const color = pinColor(p) === ACCENT ? ACCENT_L : pinColor(p);
   return L.divIcon({
-    className: '', iconSize: [46, 57], iconAnchor: [23, 53], popupAnchor: [0, -50],
-    html: `<div class="fountain-pin nearest-pin">${dropSvg(46, 57, color, inner)}</div>`
+    className: '', iconSize: [52, 57], iconAnchor: [26, 56], popupAnchor: [0, -52],
+    html: `<div class="fountain-pin nearest-pin">${pinSvgMarkup(p)}</div>`
   });
 }
 
@@ -1418,17 +1437,35 @@ function renderRadarBlips() {
   for (const p of candidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
     const { x, y } = radarPointFor(p.dist, brg);
+    const r = p === selected ? 7 : 4.5;
+    const fav = isFav(p);
+
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', x.toFixed(1));
     c.setAttribute('cy', y.toFixed(1));
-    c.setAttribute('r', p === selected ? 7 : 4.5);
-    c.setAttribute('fill', pinColor(p));
-    c.setAttribute('class', 'radar-blip' + (isFav(p) ? ' fav' : ''));
+    c.setAttribute('r', r);
+    c.setAttribute('fill', fav ? '#00bcd4' : pinColor(p));
+    c.setAttribute('class', 'radar-blip' + (fav ? ' fav' : ''));
     c.dataset.id = p.id;
     const title = document.createElementNS(ns, 'title');
     title.textContent = p.nombre || tipoLabel(p.tipo);
     c.appendChild(title);
     g.appendChild(c);
+
+    /* insignia simplificada (demasiado pequeño para el glifo real): punto
+       sólido = aseo_oficial (100% confirmado), anillo hueco = el resto
+       (comunidad/estación/CC/bar/cafetería/fastfood - todo lo que es
+       "probablemente hay aseo" en vez de un aseo garantizado). */
+    const br = Math.max(1, r * 0.34);
+    const badge = document.createElementNS(ns, 'circle');
+    badge.setAttribute('cx', (x + r * 0.62).toFixed(1));
+    badge.setAttribute('cy', (y + r * 0.62).toFixed(1));
+    badge.setAttribute('r', br.toFixed(1));
+    badge.setAttribute('fill', fav ? '#fff' : (p.tipo === 'aseo_oficial' ? '#fff' : 'none'));
+    badge.setAttribute('stroke', '#fff');
+    badge.setAttribute('stroke-width', Math.max(0.6, br * 0.5).toFixed(1));
+    badge.style.pointerEvents = 'none';
+    g.appendChild(badge);
   }
 }
 function updateRadarRotation() {
