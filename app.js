@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -17,6 +17,8 @@ const VIEW_KEY = 'aseos_view_v1';
 const FILTERS_KEY = 'aseos_filters_v1';
 const DEV_UNLOCKED_KEY = 'aseos_dev_unlocked_v1';
 const DEV_FAKELOC_KEY = 'aseos_dev_fakeloc_v1';
+const CLUSTER_KEY = 'aseos_cluster_v1';
+const CLUSTER_DEFAULTS = { disableClusteringAtZoom: 14, maxClusterRadius: 60 };
 const INFO_URL = 'https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos';
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si el servicio está pegado
 const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
@@ -71,8 +73,15 @@ let userPos = null;
 let geoWatchId = null;
 let selected = null;
 let dataUpdated = Date.now();
-const filters = { favOnly: false, emergency: false };
-try { Object.assign(filters, JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}')); } catch (_) {}
+const filters = {
+  favOnly: false, emergency: false,
+  emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true }
+};
+try {
+  const saved = JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}');
+  Object.assign(filters, saved);
+  if (saved.emergencyCats) Object.assign(filters.emergencyCats, saved.emergencyCats);
+} catch (_) {}
 function saveFilters() { try { localStorage.setItem(FILTERS_KEY, JSON.stringify(filters)); } catch (_) {} }
 
 /* favoritos (persisten en el navegador) */
@@ -119,6 +128,12 @@ const SETTINGS_KEY = 'aseos_settings_v1';
 let settings = { theme: 'system', map: 'moderno', accent: 'blue', trailOn: true, trailLen: 5, lang: 'auto' };
 try { settings = Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) {}
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {} }
+
+/* Ajuste de clústering: expuesto en modo desarrollador para comparar en vivo
+   qué zoom/radio se sienten mejor, sin tener que republicar la app cada vez. */
+let clusterSettings = Object.assign({}, CLUSTER_DEFAULTS);
+try { Object.assign(clusterSettings, JSON.parse(localStorage.getItem(CLUSTER_KEY) || '{}')); } catch (_) {}
+function saveClusterSettings() { try { localStorage.setItem(CLUSTER_KEY, JSON.stringify(clusterSettings)); } catch (_) {} }
 
 /* ============================================================
    IDIOMA — por ahora solo español; el mecanismo queda listo para
@@ -629,35 +644,39 @@ $('aboutClose').addEventListener('click', () => $('about').classList.remove('ope
    ============================================================ */
 function matchesFilter(p) {
   if (filters.favOnly && !isFav(p)) return false;
-  if (!filters.emergency && EMERGENCY_TIPOS.has(p.tipo)) return false;
+  if (EMERGENCY_TIPOS.has(p.tipo)) {
+    if (!filters.emergency) return false;
+    if (filters.emergencyCats[p.tipo] === false) return false;
+  }
   return true;
 }
 function applyFilters() {
   places = allPlaces.filter(matchesFilter);
   recomputeDistances();
   if ($('countN')) $('countN').textContent = `${places.length}`;
-  if ($('filterCount')) $('filterCount').textContent = places.length;
   if ($('emptyState')) $('emptyState').style.display = places.length ? 'none' : 'flex';
 }
 if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
   filters.favOnly = false; filters.emergency = false;
+  filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
   saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView();
 });
 function readFilterUI() {
   filters.favOnly = $('fFav').checked;
   filters.emergency = $('fEmergency').checked;
+  filters.emergencyCats.bar = $('catBar').checked;
+  filters.emergencyCats.cafeteria = $('catCafeteria').checked;
+  filters.emergencyCats.fastfood = $('catFastfood').checked;
+  filters.emergencyCats.centro_comercial = $('catCC').checked;
   saveFilters();
 }
-function onFilterChange() { readFilterUI(); applyFilters(); rebuildMarkers(); if (radarOpen) refreshRadar(); }
-function openFilters() {
-  closeSheet();
-  $('fFav').checked = filters.favOnly;
-  $('fEmergency').checked = filters.emergency;
-  $('filterCount').textContent = places.length;
-  $('filterSheet').classList.add('open');
+function updateEmergencyCatsUI() {
+  $('emergencyCats').classList.toggle('disabled', !$('fEmergency').checked);
 }
-function closeFilters() { $('filterSheet').classList.remove('open'); fitInitialView(); }
-function toggleFilters() { if ($('filterSheet').classList.contains('open')) closeFilters(); else openFilters(); }
+function onFilterChange() {
+  readFilterUI(); updateEmergencyCatsUI(); applyFilters(); rebuildMarkers(); renderListItems();
+  if (radarOpen) refreshRadar();
+}
 
 /* ============================================================
    LIST (servicios cercanos, ordenados por distancia)
@@ -682,23 +701,34 @@ function renderListItems() {
     </button>`;
   }).join('');
 }
-function openList() {
+function openServicesSheet() {
   closeSheet();
+  $('fFav').checked = filters.favOnly;
+  $('fEmergency').checked = filters.emergency;
+  $('catBar').checked = filters.emergencyCats.bar;
+  $('catCafeteria').checked = filters.emergencyCats.cafeteria;
+  $('catFastfood').checked = filters.emergencyCats.fastfood;
+  $('catCC').checked = filters.emergencyCats.centro_comercial;
+  updateEmergencyCatsUI();
   listQuery = '';
   if ($('listSearch')) $('listSearch').value = '';
   renderListItems();
   $('listSheet').classList.add('open');
 }
-function closeList() { $('listSheet').classList.remove('open'); }
-function toggleList() { if ($('listSheet').classList.contains('open')) closeList(); else openList(); }
-$('listBtn').addEventListener('click', toggleList);
-$('listClose').addEventListener('click', closeList);
+function closeServicesSheet(refit) {
+  $('listSheet').classList.remove('open');
+  if (refit !== false) fitInitialView();
+}
+function toggleServicesSheet() { if ($('listSheet').classList.contains('open')) closeServicesSheet(); else openServicesSheet(); }
+$('count').addEventListener('click', toggleServicesSheet);
+$('listBtn').addEventListener('click', toggleServicesSheet);
+$('listClose').addEventListener('click', closeServicesSheet);
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {
   const btn = e.target.closest('.list-row'); if (!btn) return;
   const p = places.find(x => favKey(x) === btn.dataset.k);
   if (!p) return;
-  closeList();
+  closeServicesSheet(false);
   map.setView([p.lat, p.lon], 17, { animate: true });
   openSheet(p);
 });
@@ -803,8 +833,8 @@ function initMap() {
      propio plugin decide qué mostrar según el zoom, no hace falta recalcular
      nada en cada movimiento del mapa (a diferencia del sistema anterior). */
   placeCluster = L.markerClusterGroup({
-    disableClusteringAtZoom: 17, spiderfyOnMaxZoom: false, showCoverageOnHover: false,
-    chunkedLoading: true, maxClusterRadius: 60
+    disableClusteringAtZoom: clusterSettings.disableClusteringAtZoom, spiderfyOnMaxZoom: false, showCoverageOnHover: false,
+    chunkedLoading: true, maxClusterRadius: clusterSettings.maxClusterRadius
   }).addTo(map);
   applyFilters();
   updateUrgencyPanel();
@@ -815,7 +845,7 @@ function initMap() {
   map.on('move', updateFarOverlay);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
-  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); hideDevContextMenu(); });
+  map.on('click', () => { closeSheet(); closeServicesSheet(false); hideDevContextMenu(); });
   map.on('movestart zoomstart', hideDevContextMenu);
   map.on('contextmenu', (e) => { if (devUnlocked) showDevContextMenu(e.containerPoint, e.latlng); });
 
@@ -903,6 +933,19 @@ function rebuildMarkers() {
   if (selected && places.indexOf(selected) !== -1) {
     selectedMarker = makeMarker(selected, true).addTo(map);
   }
+}
+/* disableClusteringAtZoom/maxClusterRadius son opciones de construcción del
+   grupo: Leaflet.markercluster no permite cambiarlas en caliente, así que
+   para el ajuste en vivo (modo desarrollador) hay que tirar el grupo y
+   crear uno nuevo con los valores actuales. */
+function recreateCluster() {
+  if (!map) return;
+  if (placeCluster) map.removeLayer(placeCluster);
+  placeCluster = L.markerClusterGroup({
+    disableClusteringAtZoom: clusterSettings.disableClusteringAtZoom, spiderfyOnMaxZoom: false, showCoverageOnHover: false,
+    chunkedLoading: true, maxClusterRadius: clusterSettings.maxClusterRadius
+  }).addTo(map);
+  rebuildMarkers();
 }
 
 /* lugar seleccionado = destino resaltado y persistente entre sesiones */
@@ -1514,7 +1557,7 @@ function updateRadarMapBearing() {
 
 function openRadarMode() {
   if (!userPos) return;
-  closeSheet(); $('filterSheet').classList.remove('open'); closeList();
+  closeSheet(); closeServicesSheet(false);
   radarOpen = true;
   $('radar').style.display = 'flex';
   arHeading = null;
@@ -1584,7 +1627,29 @@ function syncDevUI() {
       ? `Simulando ubicación: ${fl.lat}, ${fl.lon}`
       : 'Usando el GPS real.';
   }
+  if ($('devClusterZoom')) {
+    $('devClusterZoom').value = clusterSettings.disableClusteringAtZoom;
+    $('devClusterZoomVal').textContent = clusterSettings.disableClusteringAtZoom;
+  }
+  if ($('devClusterRadius')) {
+    $('devClusterRadius').value = clusterSettings.maxClusterRadius;
+    $('devClusterRadiusVal').textContent = clusterSettings.maxClusterRadius;
+  }
 }
+if ($('devClusterZoom')) $('devClusterZoom').addEventListener('input', () => {
+  clusterSettings.disableClusteringAtZoom = Number($('devClusterZoom').value);
+  $('devClusterZoomVal').textContent = clusterSettings.disableClusteringAtZoom;
+  saveClusterSettings(); recreateCluster();
+});
+if ($('devClusterRadius')) $('devClusterRadius').addEventListener('input', () => {
+  clusterSettings.maxClusterRadius = Number($('devClusterRadius').value);
+  $('devClusterRadiusVal').textContent = clusterSettings.maxClusterRadius;
+  saveClusterSettings(); recreateCluster();
+});
+if ($('devClusterReset')) $('devClusterReset').addEventListener('click', () => {
+  clusterSettings = Object.assign({}, CLUSTER_DEFAULTS);
+  saveClusterSettings(); syncDevUI(); recreateCluster();
+});
 let devUnlocked = false;
 try { devUnlocked = localStorage.getItem(DEV_UNLOCKED_KEY) === '1'; } catch (_) {}
 if (devUnlocked) showDevMode();
@@ -1671,7 +1736,7 @@ if ($('devWipeBtn')) $('devWipeBtn').addEventListener('click', () => {
   if (!confirm('¿Borrar todos los datos personales (favoritos, ajustes, visitas, filtros...) y empezar de cero? Esto no se puede deshacer.')) return;
   try {
     [FAV_KEY, TARGET_KEY, SHEET_OPEN_KEY, VISITS_KEY, LAST_ACTIVE_KEY, VIEW_KEY, FILTERS_KEY,
-     SETTINGS_KEY, DEV_FAKELOC_KEY, DEV_UNLOCKED_KEY, 'aseos_auto_updated_v']
+     SETTINGS_KEY, DEV_FAKELOC_KEY, DEV_UNLOCKED_KEY, CLUSTER_KEY, 'aseos_auto_updated_v']
       .forEach(k => localStorage.removeItem(k));
     sessionStorage.clear();
   } catch (_) {}
@@ -1710,11 +1775,12 @@ function checkForUpdate(auto) {
     .catch(() => {});
 }
 
-$('count').addEventListener('click', toggleFilters);
-$('filterClose').addEventListener('click', closeFilters);
-$('filterApply').addEventListener('click', closeFilters);
 $('fFav').addEventListener('change', onFilterChange);
 $('fEmergency').addEventListener('change', onFilterChange);
+$('catBar').addEventListener('change', onFilterChange);
+$('catCafeteria').addEventListener('change', onFilterChange);
+$('catFastfood').addEventListener('change', onFilterChange);
+$('catCC').addEventListener('change', onFilterChange);
 
 /* ---- Ajustes ---- */
 $('settingsBtn').addEventListener('click', () => { closeSheet(); otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });

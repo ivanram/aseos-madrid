@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.5">
+  <link rel="stylesheet" href="styles.css?v=1.0.6">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.5</p>
+    <p class="version" id="appVersion">v1.0.6</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -73,7 +73,7 @@
     <header class="bar">
       <img src="icon-192.png?v=1" alt="">
       <button class="t" id="aboutBtn" title="Acerca de" data-i18n="app_short">Aseos</button>
-      <button class="count" id="count" title="Filtrar" aria-label="Filtrar">
+      <button class="count" id="count" title="Servicios" aria-label="Servicios">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
       </button>
@@ -157,34 +157,35 @@
     </div>
   </div>
 
-  <!-- ============ FILTER SHEET ============ -->
-  <div id="filterSheet" role="dialog" aria-modal="true" aria-label="Filtrar">
-    <div class="grip"></div>
-    <button class="close" id="filterClose" aria-label="Cerrar">×</button>
-    <h2 class="name" data-i18n="filter_h">Filtrar</h2>
-    <div class="fgroup">
-      <div class="flabel" data-i18n="f_estado">Mostrar</div>
-      <label class="switch">
-        <input type="checkbox" id="fFav">
-        <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_fav">Solo favoritos ❤️</span>
-      </label>
-      <label class="switch" style="margin-top:12px">
-        <input type="checkbox" id="fEmergency">
-        <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_emergency">Servicios de emergencia (bares, fastfood, centros comerciales)</span>
-      </label>
-      <p class="set-hint" data-i18n="f_emergency_hint">Aseos oficiales y de comunidad siempre visibles. Los de emergencia son lugares donde probablemente haya aseo, pero no está confirmado.</p>
-    </div>
-    <button class="btn" id="filterApply"><span data-i18n="f_show">Ver</span> <span id="filterCount">—</span> <span data-i18n="f_fountains">servicios</span></button>
-  </div>
-
-  <!-- ============ LIST SHEET ============ -->
+  <!-- ============ SERVICIOS (lista + filtros fusionados) ============ -->
   <div id="listSheet" role="dialog" aria-modal="true" aria-label="Servicios cercanos">
     <div class="grip"></div>
     <button class="close" id="listClose" aria-label="Cerrar">×</button>
     <h2 class="name" data-i18n="list_h">Servicios cercanos</h2>
     <input type="search" id="listSearch" class="list-search" placeholder="Buscar calle, nombre…" data-i18n-placeholder="search_ph">
+
+    <div class="fgroup fgroup-compact">
+      <label class="switch">
+        <input type="checkbox" id="fFav">
+        <span class="track"><span class="knob"></span></span>
+        <span class="stext" data-i18n="f_fav">Solo favoritos ❤️</span>
+      </label>
+    </div>
+    <div class="fgroup fgroup-compact">
+      <label class="switch">
+        <input type="checkbox" id="fEmergency">
+        <span class="track"><span class="knob"></span></span>
+        <span class="stext" data-i18n="f_emergency">Servicios de emergencia</span>
+      </label>
+      <div class="cat-toggles" id="emergencyCats">
+        <label class="cat-toggle"><input type="checkbox" id="catBar" checked><span data-i18n="tipo_bar">Bar</span></label>
+        <label class="cat-toggle"><input type="checkbox" id="catCafeteria" checked><span data-i18n="tipo_cafeteria">Cafetería</span></label>
+        <label class="cat-toggle"><input type="checkbox" id="catFastfood" checked><span data-i18n="tipo_fastfood">Fastfood</span></label>
+        <label class="cat-toggle"><input type="checkbox" id="catCC" checked><span data-i18n="tipo_cc">Centro comercial</span></label>
+      </div>
+      <p class="set-hint" data-i18n="f_emergency_hint">Aseos oficiales y de comunidad siempre visibles. Los de emergencia son lugares donde probablemente haya aseo, pero no está confirmado.</p>
+    </div>
+
     <div class="list-scroll" id="listItems"></div>
   </div>
 
@@ -203,7 +204,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.5</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.6</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -284,6 +285,19 @@
           <button class="btn ghost" id="devFakeLocClear">Usar GPS real</button>
         </div>
         <p class="set-hint" id="devFakeLocStatus"></p>
+        <div class="set-row" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:6px">
+          <label style="display:flex;justify-content:space-between;font-size:.86rem;color:var(--muted)">
+            <span>Clústering: zoom a partir del que se separan los pines</span><span id="devClusterZoomVal">14</span>
+          </label>
+          <input type="range" id="devClusterZoom" min="10" max="19" step="1">
+        </div>
+        <div class="set-row" style="margin-top:10px;flex-direction:column;align-items:stretch;gap:6px">
+          <label style="display:flex;justify-content:space-between;font-size:.86rem;color:var(--muted)">
+            <span>Clústering: radio de agrupación (px)</span><span id="devClusterRadiusVal">60</span>
+          </label>
+          <input type="range" id="devClusterRadius" min="20" max="120" step="5">
+        </div>
+        <button class="btn ghost" id="devClusterReset" style="margin-top:10px;width:100%">Restablecer clústering por defecto</button>
         <button class="btn danger" id="devWipeBtn" style="margin-top:16px;width:100%">Borrar todos los datos y empezar de cero</button>
       </div>
       <footer class="set-footer" data-i18n="footer">Creado por Ivan con <span class="heart" id="footerHeart">❤️</span> y mucha IA</footer>
@@ -359,7 +373,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.5"></script>
-  <script src="app.js?v=1.0.5"></script>
+  <script src="themes.js?v=1.0.6"></script>
+  <script src="app.js?v=1.0.6"></script>
 </body>
 </html>

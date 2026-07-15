@@ -309,6 +309,21 @@ header.bar .count svg{width:15px;height:15px}
 .switch input:checked + .track .knob{transform:translateX(20px)}
 .switch .stext{font-size:.98rem;font-weight:600}
 
+/* grupo compacto: usado en la hoja fusionada de lista+filtros, menos aire que .fgroup normal */
+.fgroup-compact{margin-bottom:14px}
+
+/* píldoras de categoría (servicios de emergencia a mostrar) */
+.cat-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cat-toggle{display:inline-flex;cursor:pointer;user-select:none}
+.cat-toggle input{position:absolute;opacity:0;width:0;height:0}
+.cat-toggle span{
+  padding:7px 13px;border-radius:999px;font-size:.86rem;font-weight:600;
+  background:var(--bg);border:1px solid var(--line);color:var(--muted);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.cat-toggle input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
+.cat-toggles.disabled{opacity:.4;pointer-events:none}
+
 /* segmented control */
 .segment{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
 .segment button{

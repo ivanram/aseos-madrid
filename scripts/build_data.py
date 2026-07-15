@@ -157,6 +157,47 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 # ---------------------------------------------------------------------------
+# Saneado de nombres y direcciones: el censo y el dataset de aseos vienen todo
+# en MAYÚSCULAS y con números de portal con ceros a la izquierda (p.ej.
+# "AGUSTIN CALVO 0000010"). No hay forma de saber aquí si es calle, avenida,
+# carretera, etc. (el dato no lo trae), así que nos quedamos solo con
+# capitalizar y limpiar el número.
+# ---------------------------------------------------------------------------
+_SPANISH_LOWERCASE_WORDS = {"de", "del", "la", "las", "el", "los", "y", "en", "a", "al", "con", "por", "para"}
+
+
+def smart_title(s):
+    """'CASA DE PACO' -> 'Casa de Paco'; 'GUZMAN EL BUENO' -> 'Guzman el Bueno'.
+    No es perfecto (p.ej. no toca acentos que falten, ni apóstrofes a medias),
+    pero es muchísimo más legible que el todo-mayúsculas original."""
+    if not s:
+        return s
+    words = s.split(" ")
+    out = []
+    for i, w in enumerate(words):
+        if not w:
+            out.append(w)
+            continue
+        lw = w.lower()
+        if i > 0 and lw in _SPANISH_LOWERCASE_WORDS:
+            out.append(lw)
+        else:
+            out.append(w[0].upper() + w[1:].lower() if len(w) > 1 else w.upper())
+    return " ".join(out)
+
+
+def clean_numero(numero):
+    """'0000010' -> '10'; '000015' -> '15'; '0000000'/'' -> None (sin número)."""
+    if not numero:
+        return None
+    numero = numero.strip()
+    if numero.isdigit():
+        n = int(numero)
+        return str(n) if n > 0 else None
+    return numero or None
+
+
+# ---------------------------------------------------------------------------
 # Conversión UTM ETRS89 (huso 30N, el que usa el Ayuntamiento de Madrid) -> lat/lon
 # Validada contra los 130 aseos oficiales (que traen ambos sistemas): error
 # mediana de 4mm sobre los 130 puntos.
@@ -232,8 +273,9 @@ def fetch_ayto_aseos():
         except (KeyError, ValueError):
             continue
 
-        direccion_partes = [row.get("VIAL", ""), row.get("DIRECCION", ""), row.get("NUMERO", "")]
-        direccion = " ".join(p.strip() for p in direccion_partes if p and p.strip())
+        numero = clean_numero(row.get("NUMERO", ""))
+        direccion_partes = [row.get("VIAL", ""), row.get("DIRECCION", ""), numero]
+        direccion = smart_title(" ".join(p.strip() for p in direccion_partes if p and p.strip()))
 
         records.append({
             "id": "ayto-" + row["CODIGO ASEO"].strip(),
@@ -241,7 +283,7 @@ def fetch_ayto_aseos():
             "source": "ayuntamiento",
             "lat": lat,
             "lon": lon,
-            "nombre": row.get("NOMBRE", "").strip() or direccion,
+            "nombre": smart_title(row.get("NOMBRE", "").strip()) or direccion,
             "direccion": direccion or None,
             "pago": "gratis",
             "horario": {"modo": "24h", "detalle": None},
@@ -433,13 +475,14 @@ def fetch_censo_locales_hosteleria():
             continue
         lat, lon = latlon
 
-        direccion_partes = [row.get("desc_vial_edificio", ""), row.get("num_edificio", "")]
-        direccion = " ".join(p.strip() for p in direccion_partes if p and p.strip()) or None
+        numero_local = clean_numero(row.get("num_edificio", ""))
+        direccion_partes = [row.get("desc_vial_edificio", ""), numero_local]
+        direccion = smart_title(" ".join(p.strip() for p in direccion_partes if p and p.strip())) or None
 
         rotulo = row.get("rotulo", "").strip()
-        nombre = None if rotulo in ("", "S/R") else rotulo
+        nombre = None if rotulo in ("", "S/R") else smart_title(rotulo)
 
-        agrupacion = {"nombre": nombre_agrup, "tipo": tipo_agrup} if (nombre_agrup or tipo_agrup) else None
+        agrupacion = {"nombre": smart_title(nombre_agrup), "tipo": tipo_agrup} if (nombre_agrup or tipo_agrup) else None
 
         h = horarios.get(id_local)
         if h:
@@ -497,7 +540,7 @@ def fetch_censo_locales_hosteleria():
             "source": "ayuntamiento",
             "lat": lat,
             "lon": lon,
-            "nombre": nombre_agrup.title(),
+            "nombre": smart_title(nombre_agrup),
             "direccion": None,
             "pago": "gratis",
             "horario": {"modo": "estimado_categoria", "detalle": CENTRO_COMERCIAL_HORARIO_ESTIMADO},
