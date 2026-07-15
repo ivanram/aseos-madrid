@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.9';
+const APP_VERSION = '1.0.10';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -635,8 +635,21 @@ $('outsideDismiss').addEventListener('click', () => {
   if (map) map.setView([MADRID_SOL.lat, MADRID_SOL.lon], 13, { animate: false });
 });
 
+/* Los paneles a pantalla completa (ficha, servicios+filtros, ajustes, acerca
+   de) son mutuamente excluyentes: antes de abrir cualquiera de ellos, se
+   cierran todos los demás. El z-index por sí solo no lo garantiza (settings/
+   about tienen menor z-index que el popup de filtros, así que sin esto se
+   veían "por debajo" aunque estuvieran abiertos a la vez). */
+function closeAllOverlays() {
+  closeSheet();
+  closeServicesSheet(false);
+  closeFiltersPopup();
+  $('settings').classList.remove('open');
+  $('about').classList.remove('open');
+}
+
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
-$('aboutBtn').addEventListener('click', () => { closeSheet(); $('about').classList.add('open'); checkForUpdate(); });
+$('aboutBtn').addEventListener('click', () => { closeAllOverlays(); $('about').classList.add('open'); checkForUpdate(); });
 $('aboutClose').addEventListener('click', () => $('about').classList.remove('open'));
 
 /* ============================================================
@@ -760,8 +773,7 @@ function closeFiltersPopup() {
   filtersDraft = null;
 }
 function openServicesSheet() {
-  closeSheet();
-  closeFiltersPopup();
+  closeAllOverlays();
   updateFiltersBadge();
   $('listSheet').classList.remove('maximized');
   listQuery = '';
@@ -806,22 +818,28 @@ $('listItems').addEventListener('scroll', () => {
    patrón que enableSheetDrag() para la ficha de un servicio. */
 (function enableListSheetDrag() {
   const sheet = $('listSheet'), scroller = $('listItems');
-  let startY = null, dy = 0, active = false;
+  let armed = false, startY = null, dy = 0, active = false;
   scroller.addEventListener('touchstart', (e) => {
-    if (sheet.classList.contains('maximized')) return;
-    if (scroller.scrollTop > 0) return;
-    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) return;
-    startY = e.touches[0].clientY; dy = 0; active = false;
+    /* "armado" se decide aquí, no en cada touchmove: en el primer touchmove
+       de un gesto es cuando el navegador decide si es scroll nativo o no, así
+       que hay que poder llamar preventDefault() desde ese primer movimiento
+       (no solo cuando dy>0), o algunos navegadores móviles ya se han quedado
+       con el gesto para el scroll nativo y no hay marcha atrás. Tolerancia de
+       2px en scrollTop porque el rebote/inercia deja restos de subpíxel. */
+    armed = !sheet.classList.contains('maximized') && scroller.scrollTop <= 2 &&
+      !(e.target.closest('button') || e.target.closest('input') || e.target.closest('a'));
+    startY = armed ? e.touches[0].clientY : null;
+    dy = 0; active = false;
   }, { passive: true });
   scroller.addEventListener('touchmove', (e) => {
-    if (startY == null) return;
+    if (!armed || startY == null) return;
     dy = e.touches[0].clientY - startY;
     if (dy > 0) {
       active = true;
       sheet.style.transition = 'none';
       sheet.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`;
-      e.preventDefault();
     }
+    e.preventDefault();
   }, { passive: false });
   scroller.addEventListener('touchend', () => {
     if (startY == null) return;
@@ -830,7 +848,7 @@ $('listItems').addEventListener('scroll', () => {
       sheet.style.transform = '';
       if (dy > 90) closeServicesSheet();
     }
-    startY = null; dy = 0; active = false;
+    armed = false; startY = null; dy = 0; active = false;
   });
 })();
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
@@ -1266,6 +1284,7 @@ function watchPosition() {
    INFO SHEET
    ============================================================ */
 function openSheet(p) {
+  closeAllOverlays();
   setTarget(p);
   $('sName').textContent = p.nombre || tipoLabel(p.tipo);
   $('sAddr').textContent = p.direccion || tipoLabel(p.tipo);
@@ -1668,7 +1687,7 @@ function updateRadarMapBearing() {
 
 function openRadarMode() {
   if (!userPos) return;
-  closeSheet(); closeServicesSheet(false);
+  closeAllOverlays();
   radarOpen = true;
   $('radar').style.display = 'flex';
   arHeading = null;
@@ -1887,7 +1906,7 @@ function checkForUpdate(auto) {
 }
 
 /* ---- Ajustes ---- */
-$('settingsBtn').addEventListener('click', () => { closeSheet(); otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });
+$('settingsBtn').addEventListener('click', () => { closeAllOverlays(); otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });
 $('settingsClose').addEventListener('click', () => $('settings').classList.remove('open'));
 $('setTheme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   settings.theme = b.dataset.theme; saveSettings(); applyTheme(); syncSettingsUI();

@@ -241,7 +241,7 @@ header.bar .count svg{width:15px;height:15px}
    sea una única propiedad animable — así la transición es fluida y no pega
    un salto al pasar de pantalla completa a panel. */
 #listSheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:700;height:72vh;
+  position:fixed;left:0;right:0;bottom:0;z-index:700;height:72vh;height:72dvh;
   transform:translateY(115%);
   transition:transform .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1), border-radius .2s ease;
   background:var(--card);border-radius:22px 22px 0 0;
@@ -258,9 +258,11 @@ header.bar .count svg{width:15px;height:15px}
 }
 /* al hacer scroll en la lista, el panel pasa a pantalla completa: la cabecera
    (buscador+filtros) no scrollea porque ya vive fuera de .list-scroll, así
-   que "quedarse fija" sale gratis con solo agrandar el contenedor. */
+   que "quedarse fija" sale gratis con solo agrandar el contenedor. Usamos dvh
+   (con vh de respaldo) porque 100vh en móvil no cuenta la barra del navegador
+   y el panel quedaba cortado por arriba. */
 #listSheet.maximized{
-  height:100vh;border-radius:0;
+  height:100vh;height:100dvh;border-radius:0;
   padding-top:calc(8px + env(safe-area-inset-top));
 }
 #listSheet.maximized .grip{display:none}
@@ -269,7 +271,10 @@ header.bar .count svg{width:15px;height:15px}
 .filters-btn{
   flex:0 0 auto;white-space:nowrap;padding:0 16px;font-size:.9rem;border-radius:12px;
 }
-.filters-btn.active{background:var(--blue);color:#fff;box-shadow:none}
+/* especificidad extra (con el id del contenedor) porque .btn.ghost{background:var(--card)}
+   se declara más abajo y con la misma especificidad que .filters-btn.active — sin esto
+   ganaba el fondo blanco y el texto (blanco) se volvía invisible sobre blanco. */
+#listSheet .filters-btn.active{background:var(--blue);color:#fff;box-shadow:none}
 
 /* ---------- Filtros: ventana emergente ---------- */
 #filtersPopup{
@@ -290,8 +295,7 @@ header.bar .count svg{width:15px;height:15px}
 }
 .filters-title{font-size:1.1rem;font-weight:700;margin:0 0 22px;letter-spacing:-.01em}
 .filters-switch{margin-bottom:20px}
-.filters-switch:last-of-type{margin-bottom:0}
-#filtersPopup .cat-grid{margin:-6px 0 24px}
+#filtersPopup .cat-grid{margin:6px 0 24px}
 
 /* rejilla 2x2 de categorías de emergencia */
 .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
@@ -302,10 +306,12 @@ header.bar .count svg{width:15px;height:15px}
   aspect-ratio:1/1;width:100%;border-radius:16px;
   background:var(--bg);border:1.5px solid var(--line);color:var(--muted);
   font-size:.86rem;font-weight:600;text-align:center;padding:8px;
-  transition:background .15s,color .15s,border-color .15s;
+  transition:border-color .15s,color .15s;
 }
 .cat-tile .cat-emoji{font-size:1.7rem;line-height:1}
-.cat-tile input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
+/* resaltado como borde de color, no relleno — un fondo azul sólido en 4
+   casillas a la vez resultaba muy pesado visualmente */
+.cat-tile input:checked + span{border-color:var(--blue);border-width:2px;color:var(--blue-d)}
 
 .filters-actions{display:flex;gap:10px}
 .filters-actions .btn{flex:1;font-size:.92rem;padding:13px}
@@ -319,7 +325,7 @@ header.bar .count svg{width:15px;height:15px}
   -webkit-appearance:none;appearance:none;
 }
 .list-search:focus{outline:none;border-color:var(--blue)}
-.list-scroll{overflow-y:auto;flex:1;margin:0 -20px;padding:0 20px}
+.list-scroll{overflow-y:auto;flex:1;margin:0 -20px;padding:0 20px;overscroll-behavior-y:contain}
 .list-row{
   display:flex;align-items:center;gap:12px;width:100%;border:none;background:none;
   padding:12px 0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;
@@ -658,7 +664,7 @@ html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
   #sheet, #listSheet{ left:50%;width:min(620px,90vw);border-radius:22px; transform:translateX(-50%) translateY(120%); }
   #sheet.open, #listSheet.open{ transform:translateX(-50%) translateY(0); }
   /* en pantallas grandes, "maximizar" hace crecer la tarjeta en vez de ir a borde a borde */
-  #listSheet.maximized{ height:90vh;border-radius:22px; }
+  #listSheet.maximized{ height:90vh;height:90dvh;border-radius:22px; }
 }
 @media (min-width:1100px){
   #sheet, #listSheet{ width:640px; }
