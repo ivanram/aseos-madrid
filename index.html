@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.6">
+  <link rel="stylesheet" href="styles.css?v=1.0.7">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.6</p>
+    <p class="version" id="appVersion">v1.0.7</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -76,9 +76,6 @@
       <button class="count" id="count" title="Servicios" aria-label="Servicios">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
-      </button>
-      <button class="iconbtn" id="listBtn" title="Ver lista" data-i18n-title="list_title" aria-label="Ver lista">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/><path d="M9 6h11M9 12h11M9 18h11"/></svg>
       </button>
       <button class="iconbtn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -162,28 +159,31 @@
     <div class="grip"></div>
     <button class="close" id="listClose" aria-label="Cerrar">×</button>
     <h2 class="name" data-i18n="list_h">Servicios cercanos</h2>
-    <input type="search" id="listSearch" class="list-search" placeholder="Buscar calle, nombre…" data-i18n-placeholder="search_ph">
 
-    <div class="fgroup fgroup-compact">
-      <label class="switch">
-        <input type="checkbox" id="fFav">
-        <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_fav">Solo favoritos ❤️</span>
-      </label>
+    <div class="list-toolbar">
+      <input type="search" id="listSearch" class="list-search" placeholder="Buscar calle, nombre…" data-i18n-placeholder="search_ph">
+      <button class="btn ghost filters-btn" id="filtersToggleBtn" aria-expanded="false" aria-controls="filtersRow">
+        <span data-i18n="filters_btn">Filtros</span>
+      </button>
     </div>
-    <div class="fgroup fgroup-compact">
-      <label class="switch">
-        <input type="checkbox" id="fEmergency">
-        <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_emergency">Servicios de emergencia</span>
-      </label>
-      <div class="cat-toggles" id="emergencyCats">
+
+    <div class="filters-row" id="filtersRow" style="display:none">
+      <div class="filters-line">
+        <label class="chip-toggle">
+          <input type="checkbox" id="fFav">
+          <span>❤️ <span data-i18n="f_fav_chip">Favoritos</span></span>
+        </label>
+        <label class="chip-toggle">
+          <input type="checkbox" id="fEmergency">
+          <span>⚠️ <span data-i18n="f_emergency_chip">Emergencia</span></span>
+        </label>
+      </div>
+      <div class="cat-toggles" id="emergencyCats" style="display:none">
         <label class="cat-toggle"><input type="checkbox" id="catBar" checked><span data-i18n="tipo_bar">Bar</span></label>
         <label class="cat-toggle"><input type="checkbox" id="catCafeteria" checked><span data-i18n="tipo_cafeteria">Cafetería</span></label>
         <label class="cat-toggle"><input type="checkbox" id="catFastfood" checked><span data-i18n="tipo_fastfood">Fastfood</span></label>
         <label class="cat-toggle"><input type="checkbox" id="catCC" checked><span data-i18n="tipo_cc">Centro comercial</span></label>
       </div>
-      <p class="set-hint" data-i18n="f_emergency_hint">Aseos oficiales y de comunidad siempre visibles. Los de emergencia son lugares donde probablemente haya aseo, pero no está confirmado.</p>
     </div>
 
     <div class="list-scroll" id="listItems"></div>
@@ -204,7 +204,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.6</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.7</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -373,7 +373,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.6"></script>
-  <script src="app.js?v=1.0.6"></script>
+  <script src="themes.js?v=1.0.7"></script>
+  <script src="app.js?v=1.0.7"></script>
 </body>
 </html>

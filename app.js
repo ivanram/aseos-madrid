@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.6';
+const APP_VERSION = '1.0.7';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -671,7 +671,7 @@ function readFilterUI() {
   saveFilters();
 }
 function updateEmergencyCatsUI() {
-  $('emergencyCats').classList.toggle('disabled', !$('fEmergency').checked);
+  $('emergencyCats').style.display = $('fEmergency').checked ? 'flex' : 'none';
 }
 function onFilterChange() {
   readFilterUI(); updateEmergencyCatsUI(); applyFilters(); rebuildMarkers(); renderListItems();
@@ -701,6 +701,10 @@ function renderListItems() {
     </button>`;
   }).join('');
 }
+function setFiltersRowOpen(open) {
+  $('filtersRow').style.display = open ? 'flex' : 'none';
+  $('filtersToggleBtn').setAttribute('aria-expanded', String(open));
+}
 function openServicesSheet() {
   closeSheet();
   $('fFav').checked = filters.favOnly;
@@ -709,11 +713,14 @@ function openServicesSheet() {
   $('catCafeteria').checked = filters.emergencyCats.cafeteria;
   $('catFastfood').checked = filters.emergencyCats.fastfood;
   $('catCC').checked = filters.emergencyCats.centro_comercial;
+  setFiltersRowOpen(false);
   updateEmergencyCatsUI();
+  $('listSheet').classList.remove('maximized');
   listQuery = '';
   if ($('listSearch')) $('listSearch').value = '';
   renderListItems();
   $('listSheet').classList.add('open');
+  $('listItems').scrollTop = 0;
 }
 function closeServicesSheet(refit) {
   $('listSheet').classList.remove('open');
@@ -721,8 +728,13 @@ function closeServicesSheet(refit) {
 }
 function toggleServicesSheet() { if ($('listSheet').classList.contains('open')) closeServicesSheet(); else openServicesSheet(); }
 $('count').addEventListener('click', toggleServicesSheet);
-$('listBtn').addEventListener('click', toggleServicesSheet);
 $('listClose').addEventListener('click', closeServicesSheet);
+$('filtersToggleBtn').addEventListener('click', () => {
+  setFiltersRowOpen($('filtersRow').style.display === 'none');
+});
+$('listItems').addEventListener('scroll', () => {
+  if ($('listItems').scrollTop > 4) $('listSheet').classList.add('maximized');
+}, { passive: true });
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {
   const btn = e.target.closest('.list-row'); if (!btn) return;

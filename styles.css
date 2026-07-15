@@ -236,27 +236,10 @@ header.bar .count{
 header.bar .count:active{background:#e9f1fb}
 header.bar .count svg{width:15px;height:15px}
 
-/* ---------- Filter sheet (reuses bottom-sheet look) ---------- */
-#filterSheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:700;
-  transform:translateY(115%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
-  background:var(--card);border-radius:22px 22px 0 0;
-  box-shadow:0 -10px 40px rgba(20,60,110,.18);
-  padding:8px 20px calc(22px + env(safe-area-inset-bottom));
-}
-#filterSheet.open{transform:translateY(0)}
-#filterSheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:8px auto 14px}
-#filterSheet .name{font-size:1.18rem;font-weight:700;margin:0 0 16px;letter-spacing:-.01em}
-#filterSheet .close{
-  position:absolute;top:12px;right:14px;border:none;background:var(--bg);
-  width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.1rem;
-}
-#filterSheet .btn{width:100%;margin-top:6px}
-
 /* ---------- List sheet (reuses bottom-sheet look) ---------- */
 #listSheet{
   position:fixed;left:0;right:0;bottom:0;z-index:700;
-  transform:translateY(115%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  transform:translateY(115%);transition:transform .28s cubic-bezier(.2,.8,.2,1), border-radius .2s ease;
   background:var(--card);border-radius:22px 22px 0 0;
   box-shadow:0 -10px 40px rgba(20,60,110,.18);
   padding:8px 20px calc(22px + env(safe-area-inset-bottom));
@@ -269,13 +252,37 @@ header.bar .count svg{width:15px;height:15px}
   position:absolute;top:12px;right:14px;border:none;background:var(--bg);
   width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.1rem;
 }
+/* al hacer scroll en la lista, el panel pasa a pantalla completa: la cabecera
+   (buscador+filtros) no scrollea porque ya vive fuera de .list-scroll, así
+   que "quedarse fija" sale gratis con solo agrandar el contenedor. */
+#listSheet.maximized{
+  top:0;max-height:none;border-radius:0;
+  padding-top:calc(8px + env(safe-area-inset-top));
+}
+#listSheet.maximized .grip{display:none}
+
+.list-toolbar{display:flex;gap:8px;flex:0 0 auto;margin-bottom:8px}
+.filters-btn{
+  flex:0 0 auto;white-space:nowrap;padding:0 18px;font-size:.9rem;border-radius:12px;
+}
+.filters-row{flex:0 0 auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.filters-line{display:flex;gap:8px}
+.chip-toggle{display:flex;flex:1;cursor:pointer;user-select:none}
+.chip-toggle input{position:absolute;opacity:0;width:0;height:0}
+.chip-toggle span{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;
+  padding:9px 10px;border-radius:12px;font-size:.9rem;font-weight:600;
+  background:var(--bg);border:1px solid var(--line);color:var(--muted);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.chip-toggle input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
 .lang-other-select{
   width:100%;margin-top:10px;border:1px solid var(--line);background:var(--bg);
   border-radius:12px;padding:11px 14px;font-size:.96rem;color:var(--ink);font-family:inherit;
 }
 .list-search{
-  flex:0 0 auto;width:100%;border:1px solid var(--line);background:var(--bg);
-  border-radius:12px;padding:11px 14px;font-size:.96rem;color:var(--ink);margin-bottom:8px;
+  flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);
+  border-radius:12px;padding:11px 14px;font-size:.96rem;color:var(--ink);
   -webkit-appearance:none;appearance:none;
 }
 .list-search:focus{outline:none;border-color:var(--blue)}
@@ -309,11 +316,8 @@ header.bar .count svg{width:15px;height:15px}
 .switch input:checked + .track .knob{transform:translateX(20px)}
 .switch .stext{font-size:.98rem;font-weight:600}
 
-/* grupo compacto: usado en la hoja fusionada de lista+filtros, menos aire que .fgroup normal */
-.fgroup-compact{margin-bottom:14px}
-
 /* píldoras de categoría (servicios de emergencia a mostrar) */
-.cat-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cat-toggles{display:flex;flex-wrap:wrap;gap:8px}
 .cat-toggle{display:inline-flex;cursor:pointer;user-select:none}
 .cat-toggle input{position:absolute;opacity:0;width:0;height:0}
 .cat-toggle span{
@@ -322,7 +326,6 @@ header.bar .count svg{width:15px;height:15px}
   transition:background .15s,color .15s,border-color .15s;
 }
 .cat-toggle input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
-.cat-toggles.disabled{opacity:.4;pointer-events:none}
 
 /* segmented control */
 .segment{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -630,9 +633,11 @@ html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
   #about .desc, #splash .desc{ max-width:560px; }
   .mapgrid{ grid-template-columns:repeat(6,1fr); }
   /* paneles inferiores centrados y con ancho máximo */
-  #sheet, #filterSheet, #listSheet{ left:50%;width:min(620px,90vw);border-radius:22px; transform:translateX(-50%) translateY(120%); }
-  #sheet.open, #filterSheet.open, #listSheet.open{ transform:translateX(-50%) translateY(0); }
+  #sheet, #listSheet{ left:50%;width:min(620px,90vw);border-radius:22px; transform:translateX(-50%) translateY(120%); }
+  #sheet.open, #listSheet.open{ transform:translateX(-50%) translateY(0); }
+  /* en pantallas grandes, "maximizar" hace crecer la tarjeta en vez de ir a borde a borde */
+  #listSheet.maximized{ top:5vh;max-height:90vh;height:90vh;border-radius:22px;transform:translateX(-50%) translateY(0); }
 }
 @media (min-width:1100px){
-  #sheet, #filterSheet, #listSheet{ width:640px; }
+  #sheet, #listSheet{ width:640px; }
 }
