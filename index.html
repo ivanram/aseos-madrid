@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.8">
+  <link rel="stylesheet" href="styles.css?v=1.0.9">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.8</p>
+    <p class="version" id="appVersion">v1.0.9</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -163,8 +163,7 @@
     <div class="list-toolbar">
       <input type="search" id="listSearch" class="list-search" placeholder="Buscar calle, nombre…" data-i18n-placeholder="search_ph">
       <button class="btn ghost filters-btn" id="filtersToggleBtn" aria-haspopup="true" aria-expanded="false">
-        <span data-i18n="filters_btn">Filtros</span>
-        <span class="filters-badge" id="filtersBadge" style="display:none">0</span>
+        <span data-i18n="filters_btn">Filtros</span><span id="filtersCountText"></span>
       </button>
     </div>
 
@@ -189,14 +188,29 @@
         <span class="stext" data-i18n="f_emergency_label">Aseos de emergencia</span>
       </label>
 
-      <div class="cat-toggles" id="emergencyCats" style="display:none">
-        <label class="cat-toggle"><input type="checkbox" id="catBar" checked><span data-i18n="tipo_bar">Bar</span></label>
-        <label class="cat-toggle"><input type="checkbox" id="catCafeteria" checked><span data-i18n="tipo_cafeteria">Cafetería</span></label>
-        <label class="cat-toggle"><input type="checkbox" id="catFastfood" checked><span data-i18n="tipo_fastfood">Fastfood</span></label>
-        <label class="cat-toggle"><input type="checkbox" id="catCC" checked><span data-i18n="tipo_cc">Centro comercial</span></label>
+      <div class="cat-grid" id="emergencyCats" style="display:none">
+        <label class="cat-tile">
+          <input type="checkbox" id="catBar" checked>
+          <span><span class="cat-emoji">🍺</span><span data-i18n="tipo_bar">Bar</span></span>
+        </label>
+        <label class="cat-tile">
+          <input type="checkbox" id="catCafeteria" checked>
+          <span><span class="cat-emoji">☕</span><span data-i18n="tipo_cafeteria">Cafetería</span></span>
+        </label>
+        <label class="cat-tile">
+          <input type="checkbox" id="catFastfood" checked>
+          <span><span class="cat-emoji">🍔</span><span data-i18n="tipo_fastfood">Fastfood</span></span>
+        </label>
+        <label class="cat-tile">
+          <input type="checkbox" id="catCC" checked>
+          <span><span class="cat-emoji">🛍️</span><span data-i18n="tipo_cc">Centro comercial</span></span>
+        </label>
       </div>
 
-      <button class="btn ghost filters-reset" id="filtersResetBtn" data-i18n="empty_clear">Quitar filtros</button>
+      <div class="filters-actions">
+        <button class="btn ghost filters-reset" id="filtersResetBtn" data-i18n="empty_clear">Quitar filtros</button>
+        <button class="btn filters-accept" id="filtersAcceptBtn" data-i18n="filters_accept">Aceptar</button>
+      </div>
     </div>
   </div>
 
@@ -215,7 +229,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.8</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.9</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -384,7 +398,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.8"></script>
-  <script src="app.js?v=1.0.8"></script>
+  <script src="themes.js?v=1.0.9"></script>
+  <script src="app.js?v=1.0.9"></script>
 </body>
 </html>

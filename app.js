@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.8';
+const APP_VERSION = '1.0.9';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -654,6 +654,12 @@ function applyFilters() {
   places = allPlaces.filter(matchesFilter);
   recomputeDistances();
   if ($('countN')) $('countN').textContent = `${places.length}`;
+}
+/* el cartel de "nada por aquí" solo debe aparecer sobre el mapa, nunca
+   detrás de la hoja de servicios o del popup de filtros mientras se edita
+   (si no, se ve un cartel a medias por detrás y queda raro). Por eso vive
+   aparte de applyFilters() y solo se llama al volver al mapa. */
+function updateEmptyState() {
   if ($('emptyState')) $('emptyState').style.display = places.length ? 'none' : 'flex';
 }
 if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
@@ -661,17 +667,39 @@ if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
   filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
   saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView(); updateFiltersBadge();
 });
-function readFilterUI() {
-  filters.favOnly = $('fFav').checked;
-  filters.emergency = $('fEmergency').checked;
-  filters.emergencyCats.bar = $('catBar').checked;
-  filters.emergencyCats.cafeteria = $('catCafeteria').checked;
-  filters.emergencyCats.fastfood = $('catFastfood').checked;
-  filters.emergencyCats.centro_comercial = $('catCC').checked;
+/* Los filtros del popup se editan sobre un borrador: nada se aplica al mapa
+   hasta pulsar "Aceptar", así cerrar con la X (o tocar fuera) cancela sin
+   dejar rastro. "Quitar filtros" es la excepción: actúa al momento. */
+let filtersDraft = null;
+function syncFilterCheckboxes(state) {
+  $('fFav').checked = state.favOnly;
+  $('fEmergency').checked = state.emergency;
+  $('catBar').checked = state.emergencyCats.bar;
+  $('catCafeteria').checked = state.emergencyCats.cafeteria;
+  $('catFastfood').checked = state.emergencyCats.fastfood;
+  $('catCC').checked = state.emergencyCats.centro_comercial;
+  updateEmergencyCatsUI();
+}
+function readDraftFromUI() {
+  if (!filtersDraft) return;
+  filtersDraft.favOnly = $('fFav').checked;
+  filtersDraft.emergency = $('fEmergency').checked;
+  filtersDraft.emergencyCats.bar = $('catBar').checked;
+  filtersDraft.emergencyCats.cafeteria = $('catCafeteria').checked;
+  filtersDraft.emergencyCats.fastfood = $('catFastfood').checked;
+  filtersDraft.emergencyCats.centro_comercial = $('catCC').checked;
+}
+function onDraftChange() { readDraftFromUI(); updateEmergencyCatsUI(); }
+function applyFiltersState(state) {
+  filters.favOnly = state.favOnly;
+  filters.emergency = state.emergency;
+  filters.emergencyCats = Object.assign({}, state.emergencyCats);
   saveFilters();
+  applyFilters(); rebuildMarkers(); renderListItems(); updateFiltersBadge();
+  if (radarOpen) refreshRadar();
 }
 function updateEmergencyCatsUI() {
-  $('emergencyCats').style.display = $('fEmergency').checked ? 'flex' : 'none';
+  $('emergencyCats').style.display = $('fEmergency').checked ? 'grid' : 'none';
 }
 /* cuenta cuántos filtros se apartan del estado neutro (nada activado, todas
    las categorías incluidas), para el numerito del botón "Filtros". */
@@ -688,15 +716,9 @@ function countActiveFilters() {
 }
 function updateFiltersBadge() {
   const n = countActiveFilters();
-  const badge = $('filtersBadge');
   const btn = $('filtersToggleBtn');
-  if (n > 0) { badge.textContent = n; badge.style.display = ''; btn.classList.add('active'); }
-  else { badge.style.display = 'none'; btn.classList.remove('active'); }
-}
-function onFilterChange() {
-  readFilterUI(); updateEmergencyCatsUI(); updateFiltersBadge();
-  applyFilters(); rebuildMarkers(); renderListItems();
-  if (radarOpen) refreshRadar();
+  $('filtersCountText').textContent = n > 0 ? ` (${n})` : '';
+  btn.classList.toggle('active', n > 0);
 }
 
 /* ============================================================
@@ -723,19 +745,19 @@ function renderListItems() {
   }).join('');
 }
 function openFiltersPopup() {
-  $('fFav').checked = filters.favOnly;
-  $('fEmergency').checked = filters.emergency;
-  $('catBar').checked = filters.emergencyCats.bar;
-  $('catCafeteria').checked = filters.emergencyCats.cafeteria;
-  $('catFastfood').checked = filters.emergencyCats.fastfood;
-  $('catCC').checked = filters.emergencyCats.centro_comercial;
-  updateEmergencyCatsUI();
+  filtersDraft = {
+    favOnly: filters.favOnly,
+    emergency: filters.emergency,
+    emergencyCats: Object.assign({}, filters.emergencyCats)
+  };
+  syncFilterCheckboxes(filtersDraft);
   $('filtersPopup').classList.add('open');
   $('filtersToggleBtn').setAttribute('aria-expanded', 'true');
 }
 function closeFiltersPopup() {
   $('filtersPopup').classList.remove('open');
   $('filtersToggleBtn').setAttribute('aria-expanded', 'false');
+  filtersDraft = null;
 }
 function openServicesSheet() {
   closeSheet();
@@ -758,14 +780,20 @@ $('listClose').addEventListener('click', closeServicesSheet);
 $('filtersToggleBtn').addEventListener('click', openFiltersPopup);
 $('filtersPopupClose').addEventListener('click', closeFiltersPopup);
 $('filtersPopup').addEventListener('click', (e) => { if (e.target === $('filtersPopup')) closeFiltersPopup(); });
+$('fFav').addEventListener('change', onDraftChange);
+$('fEmergency').addEventListener('change', onDraftChange);
+$('catBar').addEventListener('change', onDraftChange);
+$('catCafeteria').addEventListener('change', onDraftChange);
+$('catFastfood').addEventListener('change', onDraftChange);
+$('catCC').addEventListener('change', onDraftChange);
+$('filtersAcceptBtn').addEventListener('click', () => {
+  readDraftFromUI();
+  applyFiltersState(filtersDraft);
+  closeFiltersPopup();
+});
 if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
-  filters.favOnly = false; filters.emergency = false;
-  filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
-  saveFilters(); applyFilters(); rebuildMarkers(); renderListItems(); updateFiltersBadge();
-  $('fFav').checked = false; $('fEmergency').checked = false;
-  $('catBar').checked = true; $('catCafeteria').checked = true;
-  $('catFastfood').checked = true; $('catCC').checked = true;
-  updateEmergencyCatsUI();
+  applyFiltersState({ favOnly: false, emergency: false, emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true } });
+  closeFiltersPopup();
 });
 /* maximizar/desmaximizar la hoja según el scroll de la lista: al alejarte
    del principio se expande a pantalla completa, y al volver arriba se
@@ -773,6 +801,38 @@ if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
 $('listItems').addEventListener('scroll', () => {
   $('listSheet').classList.toggle('maximized', $('listItems').scrollTop > 4);
 }, { passive: true });
+/* seguir deslizando hacia abajo una vez ya está en modo panel (arriba del
+   todo y sin maximizar) minimiza la hoja hasta cerrarla del todo — mismo
+   patrón que enableSheetDrag() para la ficha de un servicio. */
+(function enableListSheetDrag() {
+  const sheet = $('listSheet'), scroller = $('listItems');
+  let startY = null, dy = 0, active = false;
+  scroller.addEventListener('touchstart', (e) => {
+    if (sheet.classList.contains('maximized')) return;
+    if (scroller.scrollTop > 0) return;
+    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) return;
+    startY = e.touches[0].clientY; dy = 0; active = false;
+  }, { passive: true });
+  scroller.addEventListener('touchmove', (e) => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy > 0) {
+      active = true;
+      sheet.style.transition = 'none';
+      sheet.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`;
+      e.preventDefault();
+    }
+  }, { passive: false });
+  scroller.addEventListener('touchend', () => {
+    if (startY == null) return;
+    if (active) {
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+      if (dy > 90) closeServicesSheet();
+    }
+    startY = null; dy = 0; active = false;
+  });
+})();
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {
   const btn = e.target.closest('.list-row'); if (!btn) return;
@@ -1030,6 +1090,7 @@ function recomputeDistances() {
 function nearest() { return places.length ? places[0] : null; }
 
 function fitInitialView() {
+  updateEmptyState();
   if (!userPos || !map) return;
   const near = nearest();
   if (!near) { map.setView([userPos.lat, userPos.lon], 15); return; }
@@ -1824,13 +1885,6 @@ function checkForUpdate(auto) {
     })
     .catch(() => {});
 }
-
-$('fFav').addEventListener('change', onFilterChange);
-$('fEmergency').addEventListener('change', onFilterChange);
-$('catBar').addEventListener('change', onFilterChange);
-$('catCafeteria').addEventListener('change', onFilterChange);
-$('catFastfood').addEventListener('change', onFilterChange);
-$('catCC').addEventListener('change', onFilterChange);
 
 /* ---- Ajustes ---- */
 $('settingsBtn').addEventListener('click', () => { closeSheet(); otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });

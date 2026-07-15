@@ -237,13 +237,17 @@ header.bar .count:active{background:#e9f1fb}
 header.bar .count svg{width:15px;height:15px}
 
 /* ---------- List sheet (reuses bottom-sheet look) ---------- */
+/* la altura es explícita (no max-height:none) para que maximizar/desmaximizar
+   sea una única propiedad animable — así la transición es fluida y no pega
+   un salto al pasar de pantalla completa a panel. */
 #listSheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:700;
-  transform:translateY(115%);transition:transform .28s cubic-bezier(.2,.8,.2,1), border-radius .2s ease;
+  position:fixed;left:0;right:0;bottom:0;z-index:700;height:72vh;
+  transform:translateY(115%);
+  transition:transform .28s cubic-bezier(.2,.8,.2,1), height .28s cubic-bezier(.2,.8,.2,1), border-radius .2s ease;
   background:var(--card);border-radius:22px 22px 0 0;
   box-shadow:0 -10px 40px rgba(20,60,110,.18);
   padding:8px 20px calc(22px + env(safe-area-inset-bottom));
-  max-height:72vh;display:flex;flex-direction:column;
+  display:flex;flex-direction:column;
 }
 #listSheet.open{transform:translateY(0)}
 #listSheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:8px auto 14px;flex:0 0 auto}
@@ -256,7 +260,7 @@ header.bar .count svg{width:15px;height:15px}
    (buscador+filtros) no scrollea porque ya vive fuera de .list-scroll, así
    que "quedarse fija" sale gratis con solo agrandar el contenedor. */
 #listSheet.maximized{
-  top:0;max-height:none;border-radius:0;
+  height:100vh;border-radius:0;
   padding-top:calc(8px + env(safe-area-inset-top));
 }
 #listSheet.maximized .grip{display:none}
@@ -264,14 +268,8 @@ header.bar .count svg{width:15px;height:15px}
 .list-toolbar{display:flex;gap:8px;flex:0 0 auto;margin-bottom:8px}
 .filters-btn{
   flex:0 0 auto;white-space:nowrap;padding:0 16px;font-size:.9rem;border-radius:12px;
-  position:relative;gap:6px;
 }
 .filters-btn.active{background:var(--blue);color:#fff;box-shadow:none}
-.filters-badge{
-  display:inline-flex;align-items:center;justify-content:center;
-  min-width:18px;height:18px;padding:0 5px;border-radius:999px;
-  background:#fff;color:var(--blue-d);font-size:.72rem;font-weight:800;
-}
 
 /* ---------- Filtros: ventana emergente ---------- */
 #filtersPopup{
@@ -281,20 +279,36 @@ header.bar .count svg{width:15px;height:15px}
 #filtersPopup.open{background:rgba(10,22,38,.42);pointer-events:auto}
 .filters-card{
   position:relative;width:min(360px,100%);background:var(--card);border-radius:20px;
-  box-shadow:0 20px 60px rgba(20,60,110,.3);padding:22px 22px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:0 20px 60px rgba(20,60,110,.3);padding:26px 24px calc(22px + env(safe-area-inset-bottom));
   transform:scale(.94) translateY(10px);opacity:0;
   transition:transform .2s cubic-bezier(.2,.8,.2,1), opacity .16s ease;
 }
 #filtersPopup.open .filters-card{transform:scale(1) translateY(0);opacity:1}
 .filters-card .close{
-  position:absolute;top:0;right:0;border:none;background:var(--bg);
+  position:absolute;top:14px;right:14px;border:none;background:var(--bg);
   width:32px;height:32px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.05rem;
 }
-.filters-title{font-size:1.05rem;font-weight:700;margin:0 0 18px;letter-spacing:-.01em}
-.filters-switch{margin-bottom:16px}
+.filters-title{font-size:1.1rem;font-weight:700;margin:0 0 22px;letter-spacing:-.01em}
+.filters-switch{margin-bottom:20px}
 .filters-switch:last-of-type{margin-bottom:0}
-#filtersPopup .cat-toggles{margin:-4px 0 18px}
-.filters-reset{width:100%;font-size:.92rem;padding:12px}
+#filtersPopup .cat-grid{margin:-6px 0 24px}
+
+/* rejilla 2x2 de categorías de emergencia */
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+.cat-tile{display:block;cursor:pointer;user-select:none}
+.cat-tile input{position:absolute;opacity:0;width:0;height:0}
+.cat-tile > span{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  aspect-ratio:1/1;width:100%;border-radius:16px;
+  background:var(--bg);border:1.5px solid var(--line);color:var(--muted);
+  font-size:.86rem;font-weight:600;text-align:center;padding:8px;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.cat-tile .cat-emoji{font-size:1.7rem;line-height:1}
+.cat-tile input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+.filters-actions{display:flex;gap:10px}
+.filters-actions .btn{flex:1;font-size:.92rem;padding:13px}
 .lang-other-select{
   width:100%;margin-top:10px;border:1px solid var(--line);background:var(--bg);
   border-radius:12px;padding:11px 14px;font-size:.96rem;color:var(--ink);font-family:inherit;
@@ -334,17 +348,6 @@ header.bar .count svg{width:15px;height:15px}
 .switch input:checked + .track{background:var(--blue)}
 .switch input:checked + .track .knob{transform:translateX(20px)}
 .switch .stext{font-size:.98rem;font-weight:600}
-
-/* píldoras de categoría (servicios de emergencia a mostrar) */
-.cat-toggles{display:flex;flex-wrap:wrap;gap:8px}
-.cat-toggle{display:inline-flex;cursor:pointer;user-select:none}
-.cat-toggle input{position:absolute;opacity:0;width:0;height:0}
-.cat-toggle span{
-  padding:7px 13px;border-radius:999px;font-size:.86rem;font-weight:600;
-  background:var(--bg);border:1px solid var(--line);color:var(--muted);
-  transition:background .15s,color .15s,border-color .15s;
-}
-.cat-toggle input:checked + span{background:var(--blue);color:#fff;border-color:var(--blue)}
 
 /* segmented control */
 .segment{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -655,7 +658,7 @@ html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
   #sheet, #listSheet{ left:50%;width:min(620px,90vw);border-radius:22px; transform:translateX(-50%) translateY(120%); }
   #sheet.open, #listSheet.open{ transform:translateX(-50%) translateY(0); }
   /* en pantallas grandes, "maximizar" hace crecer la tarjeta en vez de ir a borde a borde */
-  #listSheet.maximized{ top:5vh;max-height:90vh;height:90vh;border-radius:22px;transform:translateX(-50%) translateY(0); }
+  #listSheet.maximized{ height:90vh;border-radius:22px; }
 }
 @media (min-width:1100px){
   #sheet, #listSheet{ width:640px; }
