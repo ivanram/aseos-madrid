@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.12';
+const APP_VERSION = '1.0.13';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -829,25 +829,38 @@ if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
   const DOWN_CLOSE = 90;        // hacia abajo desde modo panel: cierra
   const DOWN_COMPACT = 40;      // hacia abajo desde maximizado: vuelve a modo panel
   const DOWN_CLOSE_FROM_MAX = 160; // hacia abajo desde maximizado, de un tirón: cierra directamente
-  let startY = null, dy = 0, wasMaximized = false;
+  let startY = null, dy = 0, wasMaximized = false, startHeight = 0, maxHeight = 0;
   grip.addEventListener('touchstart', (e) => {
     startY = e.touches[0].clientY;
     dy = 0;
     wasMaximized = sheet.classList.contains('maximized');
+    startHeight = sheet.getBoundingClientRect().height;
+    maxHeight = (window.innerWidth >= 760 ? 0.9 : 1) * window.innerHeight;
     sheet.style.transition = 'none';
   }, { passive: true });
   grip.addEventListener('touchmove', (e) => {
     if (startY == null) return;
     dy = e.touches[0].clientY - startY;
     const xPart = window.innerWidth >= 760 ? 'translateX(-50%) ' : '';
-    const visualDy = dy < 0 ? Math.max(dy, -40) : dy;   // el "tirón hacia arriba" no se ve más allá de 40px, es solo feedback
-    sheet.style.transform = `${xPart}translateY(${visualDy}px)`;
+    if (dy < 0 && !wasMaximized) {
+      /* arrastre hacia arriba: crece la altura, no se traslada la caja entera.
+         El borde inferior está anclado con bottom:0, así que si en vez de
+         esto usábamos transform:translateY(), toda la hoja (borde inferior
+         incluido) se despegaba del borde de la pantalla y dejaba un hueco
+         con el mapa asomando por debajo — justo el bug reportado. */
+      sheet.style.height = `${Math.min(maxHeight, startHeight - dy)}px`;
+      sheet.style.transform = xPart ? `${xPart}translateY(0)` : '';
+    } else if (dy > 0) {
+      sheet.style.height = '';
+      sheet.style.transform = `${xPart}translateY(${dy}px)`;
+    }
     e.preventDefault();
   }, { passive: false });
   grip.addEventListener('touchend', () => {
     if (startY == null) return;
     sheet.style.transition = '';
     sheet.style.transform = '';
+    sheet.style.height = '';
     if (!wasMaximized && dy <= -UP_THRESHOLD) sheet.classList.add('maximized');
     else if (wasMaximized && dy >= DOWN_CLOSE_FROM_MAX) closeServicesSheet();
     else if (wasMaximized && dy >= DOWN_COMPACT) sheet.classList.remove('maximized');
