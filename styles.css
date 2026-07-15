@@ -94,7 +94,13 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 }
 .heading-cone.show{opacity:1}
 .fountain-pin{filter:drop-shadow(0 3px 4px rgba(0,0,0,.25));transition:transform .12s}
-.fountain-pin.off{opacity:.55}
+/* opacidad según confianza de apertura (ver openConfidence en app.js):
+   cuanto más seguro es que esté abierto, más opaco se ve el pin */
+.fountain-pin.tier-100{opacity:1}
+.fountain-pin.tier-50{opacity:.75}
+.fountain-pin.tier-25{opacity:.55}
+.fountain-pin.tier-10{opacity:.4}
+.fountain-pin.tier-0{opacity:.3}
 .leaflet-marker-icon:focus{outline:none}
 
 /* Recenter button */
@@ -125,6 +131,23 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 #sheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:8px auto 14px}
 #sheet .name{font-size:1.18rem;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
 #sheet .addr{color:var(--muted);margin:0 0 14px;line-height:1.4}
+/* filas estructuradas de la ficha: distancia+tiempo / categoría·pago / horario.
+   Sustituyen al antiguo "todo son chips", que mezclaba datos muy distintos
+   (una distancia no es lo mismo que una confianza de apertura) con el mismo
+   tratamiento visual. */
+.sheet-info{margin-bottom:14px}
+.sheet-line{margin:0 0 6px;font-size:.94rem;color:var(--ink);display:flex;align-items:center;gap:7px}
+.sheet-line:last-child{margin-bottom:0}
+.sheet-line svg{width:17px;height:17px;flex:0 0 auto;color:var(--muted)}
+.sheet-line.sched{font-weight:700}
+.sheet-line.sched.tier-100{color:var(--ok)}
+.sheet-line.sched.tier-0{color:#c0392b}
+.sheet-line.sched.tier-50{color:#b8860b}
+.sheet-line.sched.tier-25{color:#c9660c}
+.sheet-line.sched.tier-10{color:var(--muted)}
+html[data-theme="dark"] .sheet-line.sched.tier-0{color:#ff8a7a}
+html[data-theme="dark"] .sheet-line.sched.tier-50{color:#e0b34a}
+html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 #sheet .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
 #sheet .visit-info{margin:-8px 0 14px;font-size:.84rem;color:var(--muted)}
 .chip{
@@ -133,8 +156,6 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
   padding:7px 12px;border-radius:999px;font-size:.86rem;font-weight:600;color:var(--ink);
 }
 .chip svg{width:17px;height:17px}
-.chip.ok{color:var(--ok)}
-.chip.dist{color:var(--blue-d)}
 #sheet .actions{display:flex;gap:10px}
 #sheet .actions .btn{flex:1;font-size:.96rem;padding:14px 10px}
 #sheet .close{
@@ -304,14 +325,19 @@ header.bar .count svg{width:15px;height:15px}
 .filters-switch{margin-bottom:20px}
 .switch-row{display:flex;align-items:center;gap:10px}
 .switch-row .switch{flex:1;min-width:0}
-/* enlace de texto plano, no un botón con relleno: un icono ℹ️ resaltado en
-   azul sólido quedaba muy pesado visualmente para un simple "más info" */
+/* botón redondo con el glifo 🛈: un enlace de texto ("¿Qué significa?") no
+   cabía en una línea en móvil, y un icono ℹ️ resaltado en azul sólido
+   quedaba muy pesado visualmente para un simple "más info". */
 .info-link{
-  flex:0 0 auto;border:none;background:none;padding:0;margin:0;
-  font-size:.84rem;font-weight:600;color:var(--blue-d);text-decoration:underline;
-  cursor:pointer;font-family:inherit;
+  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
+  border:1px solid var(--line);background:var(--bg);color:var(--muted);
+  font-size:1rem;line-height:1;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;
 }
+.info-link:active{background:var(--line)}
 #filtersPopup .cat-grid{margin:6px 0 24px}
+.cert-select{margin:-4px 0 24px}
+.cert-select .flabel{margin-bottom:9px}
 
 /* ---------- Info de aseos de emergencia (ventana emergente sobre la de filtros) ---------- */
 #emergencyInfoModal{
@@ -393,9 +419,6 @@ header.bar .count svg{width:15px;height:15px}
   transition:background .15s,color .15s;
 }
 .segment button.active{background:var(--blue);color:#fff;box-shadow:0 3px 8px rgba(31,127,224,.3)}
-
-/* sheet estado chip: bad state */
-.chip.bad{color:#c0392b}
 
 /* ---------- Loading screen ---------- */
 #loading{

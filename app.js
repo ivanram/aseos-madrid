@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.14';
+const APP_VERSION = '1.0.15';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -67,6 +67,7 @@ function urgencyLevelFor(min) {
 /* ---------- State ---------- */
 let map, userMarker, accCircle, placeCluster, selectedMarker;
 let allPlaces = [];       // todo lo cargado del JSON
+let ESTIMACIONES_HORARIO = {}; // { tipo: { ventana: "HH:MM-HH:MM", pausa?: "HH:MM-HH:MM" } }, ver openConfidence()
 let corePlaces = [];      // aseo_oficial + aseo_comunidad + estacion (para el aviso de "fuera de Madrid", barato de recorrer)
 let places = [];          // tras aplicar filtros, ordenado por cercanía
 let userPos = null;
@@ -75,7 +76,8 @@ let selected = null;
 let dataUpdated = Date.now();
 const filters = {
   favOnly: false, emergency: false,
-  emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true }
+  emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true },
+  minConfidence: 100  // 100 = solo lugares con horario real y abiertos ahora mismo (predeterminado, el más exigente)
 };
 try {
   const saved = JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}');
@@ -401,45 +403,6 @@ function toast(msg, ms = 2400) {
 }
 
 /* ============================================================
-   HORARIOS: ¿probablemente abierto ahora?
-   ============================================================ */
-function parseTimeRanges(detalle) {
-  if (!detalle) return [];
-  return detalle.split(',').map(s => s.trim()).map(seg => {
-    const m = seg.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
-    if (!m) return null;
-    const start = (+m[1]) * 60 + (+m[2]);
-    let end = (+m[3]) * 60 + (+m[4]);
-    if (end <= start) end += 1440;   // cruza medianoche
-    return [start, end];
-  }).filter(Boolean);
-}
-/* true = probablemente abierto, false = probablemente cerrado, null = no se sabe */
-function isLikelyOpenNow(p) {
-  const h = p.horario;
-  if (!h) return null;
-  if (h.modo === '24h') return true;
-  if (h.modo === 'desconocido' || !h.detalle) return null;
-  const ranges = parseTimeRanges(h.detalle);
-  if (!ranges.length) return null;
-  const now = new Date();
-  const mins = now.getHours() * 60 + now.getMinutes();
-  for (const [s, e] of ranges) {
-    if (mins >= s && mins <= e) return true;
-    if (mins + 1440 >= s && mins + 1440 <= e) return true;
-  }
-  return false;
-}
-function horarioChip(p) {
-  const h = p.horario;
-  if (h && h.modo === '24h') return `<span class="chip ok">${checkSvg()} ${t('open_24h')}</span>`;
-  const open = isLikelyOpenNow(p);
-  if (open === true) return `<span class="chip ok">${checkSvg()} ${t('open_now')}</span>`;
-  if (open === false) return `<span class="chip bad">${crossSvg()} ${t('closed_now')}</span>`;
-  return '';
-}
-
-/* ============================================================
    DATA: data/aseos.json
    ============================================================ */
 let _dataPromise = null;
@@ -456,11 +419,101 @@ async function loadData() {
   if (!list.length) throw new Error('Sin datos');
   allPlaces = list.map(makePlace);
   corePlaces = allPlaces.filter(p => !EMERGENCY_TIPOS.has(p.tipo));
+  ESTIMACIONES_HORARIO = data.estimaciones_horario_por_categoria || {};
   dataUpdated = data.generado || Date.now();
   setUpdated(dataUpdated, allPlaces.length);
   return allPlaces;
 }
 function makePlace(p) { return Object.assign({}, p, { marker: null, dist: null }); }
+
+/* ============================================================
+   CONFIANZA DE APERTURA (solo categorías "de emergencia": bar,
+   cafetería, fastfood, centro comercial — para aseo_oficial/aseo_comunidad
+   el concepto de "horario comercial" no aplica igual, y en aseo_comunidad
+   el dato real que trae OSM viene en formato opening_hours (sintaxis por
+   día de la semana), no en el "HH:MM-HH:MM" simple del censo, así que no
+   intentamos parsearlo aquí — se queda sin nivel de confianza).
+
+   4 niveles:
+     100 → dato real declarado y ahora mismo dentro de un turno: "Abierto hasta HH:MM"
+     0   → dato real declarado pero ahora fuera de todos los turnos: "Cerrado ahora"
+     50  → sin dato real, dentro de la ventana estimada de la categoría y en
+           hora "normal": "Podría estar abierto"
+     25  → igual que 50 pero en hora "rara" (antes de las 8:00, después de las
+           22:00, o dentro de la pausa de mediodía típica de la categoría,
+           si la tiene): "Quizá está abierto"
+     10  → fuera incluso de la ventana estimada: "Poco probable que esté abierto"
+   ============================================================ */
+const HORA_RARA_FIN_TEMPRANO = 8 * 60;   // antes de las 8:00
+const HORA_RARA_INICIO_TARDE = 22 * 60;  // después de las 22:00
+
+function minutesToHHMM(mins) {
+  mins = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+/* "08:00-02:00" o "08:00-14:00, 17:00-20:00" -> [[inicioMin,finMin], ...],
+   con "fin" pasado de medianoche (>1440) si el turno cruza la noche.
+   Devuelve null si el texto no encaja con este formato simple (p.ej. la
+   sintaxis opening_hours de OSM que trae aseo_comunidad). */
+function parseRangoHorario(str) {
+  if (!str) return null;
+  const turnos = [];
+  for (const parte of str.split(',')) {
+    const m = parte.trim().match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+    if (!m) return null;
+    let s = (+m[1]) * 60 + (+m[2]);
+    let e = (+m[3]) * 60 + (+m[4]);
+    if (e <= s) e += 1440;
+    turnos.push([s, e]);
+  }
+  return turnos.length ? turnos : null;
+}
+function dentroDeTurno(turnos, minutos) {
+  return turnos.some(([s, e]) => (minutos >= s && minutos < e) || (minutos + 1440 >= s && minutos + 1440 < e));
+}
+function cierreDeTurnoActual(turnos, minutos) {
+  for (const [s, e] of turnos) {
+    if ((minutos >= s && minutos < e) || (minutos + 1440 >= s && minutos + 1440 < e)) return e;
+  }
+  return null;
+}
+function esHoraRara(minutos, turnosPausa) {
+  if (minutos < HORA_RARA_FIN_TEMPRANO || minutos >= HORA_RARA_INICIO_TARDE) return true;
+  return !!(turnosPausa && dentroDeTurno(turnosPausa, minutos));
+}
+/* Devuelve { tier, key, hhmm? } o null si no aplica (24h propio de otro
+   sistema, o formato de horario que no sabemos interpretar). */
+function openConfidence(p, now) {
+  if (!EMERGENCY_TIPOS.has(p.tipo)) return null;
+  const h = p.horario;
+  if (!h) return null;
+  const minutos = (now || new Date()).getHours() * 60 + (now || new Date()).getMinutes();
+  if (h.modo === 'conocido') {
+    const turnos = parseRangoHorario(h.detalle);
+    if (!turnos) return null;
+    if (dentroDeTurno(turnos, minutos)) {
+      return { tier: 100, key: 'open_until', hhmm: minutesToHHMM(cierreDeTurnoActual(turnos, minutos)) };
+    }
+    return { tier: 0, key: 'closed_now' };
+  }
+  const est = ESTIMACIONES_HORARIO[p.tipo];
+  if (!est) return null;
+  const ventana = parseRangoHorario(est.ventana);
+  if (!ventana || !dentroDeTurno(ventana, minutos)) return { tier: 10, key: 'unlikely' };
+  const pausa = est.pausa ? parseRangoHorario(est.pausa) : null;
+  return esHoraRara(minutos, pausa) ? { tier: 25, key: 'maybe_odd' } : { tier: 50, key: 'maybe_normal' };
+}
+function openConfidenceLabel(conf) {
+  if (!conf) return null;
+  switch (conf.key) {
+    case 'open_until': return t('sched_open_until').replace('{hhmm}', conf.hhmm);
+    case 'closed_now': return t('sched_closed_now');
+    case 'maybe_normal': return t('sched_maybe_normal');
+    case 'maybe_odd': return t('sched_maybe_odd');
+    case 'unlikely': return t('sched_unlikely');
+    default: return null;
+  }
+}
 
 let _statusState = null;
 function setUpdated(ms, n) {
@@ -660,6 +713,11 @@ function matchesFilter(p) {
   if (EMERGENCY_TIPOS.has(p.tipo)) {
     if (!filters.emergency) return false;
     if (filters.emergencyCats[p.tipo] === false) return false;
+    const conf = openConfidence(p);
+    // sin dato de confianza no filtramos por horario (no penalizar por falta
+    // de información); con dato, un "cerrado ahora" (tier 0) certero se
+    // excluye siempre, sea cual sea el nivel de exigencia elegido.
+    if (conf && (conf.tier === 0 || conf.tier < filters.minConfidence)) return false;
   }
   return true;
 }
@@ -684,6 +742,11 @@ if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
    hasta pulsar "Aceptar", así cerrar con la X (o tocar fuera) cancela sin
    dejar rastro. "Quitar filtros" es la excepción: actúa al momento. */
 let filtersDraft = null;
+function syncCertSegmentUI(minConfidence) {
+  $('certSegment').querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', +b.dataset.cert === minConfidence);
+  });
+}
 function syncFilterCheckboxes(state) {
   $('fFav').checked = state.favOnly;
   $('fEmergency').checked = state.emergency;
@@ -691,6 +754,7 @@ function syncFilterCheckboxes(state) {
   $('catCafeteria').checked = state.emergencyCats.cafeteria;
   $('catFastfood').checked = state.emergencyCats.fastfood;
   $('catCC').checked = state.emergencyCats.centro_comercial;
+  syncCertSegmentUI(state.minConfidence);
   updateEmergencyCatsUI();
 }
 function readDraftFromUI() {
@@ -703,19 +767,28 @@ function readDraftFromUI() {
   filtersDraft.emergencyCats.centro_comercial = $('catCC').checked;
 }
 function onDraftChange() { readDraftFromUI(); updateEmergencyCatsUI(); }
+$('certSegment').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn || !filtersDraft) return;
+  filtersDraft.minConfidence = +btn.dataset.cert;
+  syncCertSegmentUI(filtersDraft.minConfidence);
+});
 function applyFiltersState(state) {
   filters.favOnly = state.favOnly;
   filters.emergency = state.emergency;
   filters.emergencyCats = Object.assign({}, state.emergencyCats);
+  filters.minConfidence = state.minConfidence;
   saveFilters();
   applyFilters(); rebuildMarkers(); renderListItems(); updateFiltersBadge();
   if (radarOpen) refreshRadar();
 }
 function updateEmergencyCatsUI() {
-  $('emergencyCats').style.display = $('fEmergency').checked ? 'grid' : 'none';
+  const show = $('fEmergency').checked;
+  $('emergencyCats').style.display = show ? 'grid' : 'none';
+  $('certSelect').style.display = show ? '' : 'none';
 }
 /* cuenta cuántos filtros se apartan del estado neutro (nada activado, todas
-   las categorías incluidas), para el numerito del botón "Filtros". */
+   las categorías incluidas, certeza máxima por defecto), para el numerito
+   del botón "Filtros". */
 function countActiveFilters() {
   let n = 0;
   if (filters.favOnly) n++;
@@ -724,6 +797,7 @@ function countActiveFilters() {
     for (const k of ['bar', 'cafeteria', 'fastfood', 'centro_comercial']) {
       if (filters.emergencyCats[k] === false) n++;
     }
+    if (filters.minConfidence !== 100) n++;
   }
   return n;
 }
@@ -763,7 +837,8 @@ function openFiltersPopup() {
   filtersDraft = {
     favOnly: filters.favOnly,
     emergency: filters.emergency,
-    emergencyCats: Object.assign({}, filters.emergencyCats)
+    emergencyCats: Object.assign({}, filters.emergencyCats),
+    minConfidence: filters.minConfidence
   };
   syncFilterCheckboxes(filtersDraft);
   closeEmergencyInfoModal();
@@ -811,7 +886,7 @@ $('filtersAcceptBtn').addEventListener('click', () => {
   closeFiltersPopup();
 });
 if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
-  applyFiltersState({ favOnly: false, emergency: false, emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true } });
+  applyFiltersState({ favOnly: false, emergency: false, emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true }, minConfidence: 100 });
   closeFiltersPopup();
 });
 /* Maximizar/minimizar/cerrar la hoja de servicios se controla solo desde el
@@ -937,17 +1012,24 @@ function pinSvgMarkup(p) {
     badge +
     `</svg>`;
 }
+/* clase de opacidad según la confianza de apertura (ver openConfidence): a
+   más confianza, más opaco; sin dato de confianza (aseo oficial/comunidad,
+   o formato de horario que no sabemos interpretar) se deja opaco del todo,
+   no penalizamos por falta de información. */
+function tierOpacityClass(p) {
+  const conf = openConfidence(p);
+  return conf ? ` tier-${conf.tier}` : '';
+}
 function placeIcon(p) {
-  const off = isLikelyOpenNow(p) === false;
   return L.divIcon({
     className: '', iconSize: [38, 42], iconAnchor: [19, 41], popupAnchor: [0, -38],
-    html: `<div class="fountain-pin${off ? ' off' : ''}">${pinSvgMarkup(p)}</div>`
+    html: `<div class="fountain-pin${tierOpacityClass(p)}">${pinSvgMarkup(p)}</div>`
   });
 }
 function nearestIcon(p) {
   return L.divIcon({
     className: '', iconSize: [52, 57], iconAnchor: [26, 56], popupAnchor: [0, -52],
-    html: `<div class="fountain-pin nearest-pin">${pinSvgMarkup(p)}</div>`
+    html: `<div class="fountain-pin nearest-pin${tierOpacityClass(p)}">${pinSvgMarkup(p)}</div>`
   });
 }
 
@@ -1052,6 +1134,15 @@ function refreshAllIcons() {
     if (p.marker) p.marker.setIcon(p === selected ? nearestIcon(p) : placeIcon(p));
   }
 }
+/* La confianza de apertura depende del reloj, no de la posición: sin este
+   temporizador, un pin se quedaría opaco (o transparente) para siempre tal
+   y como estaba cuando se dibujó, aunque pasen las horas. */
+setInterval(() => {
+  if (!map) return;
+  refreshAllIcons();
+  if (selected && $('sheet').classList.contains('open')) renderSchedLine(selected);
+  if (radarOpen) renderRadarBlips();
+}, 60000);
 function makeMarker(p, isSelected) {
   const m = L.marker([p.lat, p.lon], { icon: isSelected ? nearestIcon(p) : placeIcon(p) })
     .on('click', () => handleMarkerClick(p));
@@ -1303,12 +1394,10 @@ function openSheet(p) {
   setTarget(p);
   $('sName').textContent = p.nombre || tipoLabel(p.tipo);
   $('sAddr').textContent = p.direccion || tipoLabel(p.tipo);
+  $('sDistLine').innerHTML = `${pinSvg()} ${fmtDist(p.dist)} · ${fmtWalkMin(p.dist)}`;
+  $('sCatLine').textContent = `${TIPO_EMOJI[p.tipo] || ''} ${tipoLabel(p.tipo)} · ${PAGO_LABEL[p.pago] || p.pago}`;
+  renderSchedLine(p);
   const chips = [];
-  chips.push(`<span class="chip dist">${pinSvg()} ${fmtDist(p.dist)} · ${fmtWalkMin(p.dist)}</span>`);
-  chips.push(`<span class="chip">${TIPO_EMOJI[p.tipo] || ''} ${tipoLabel(p.tipo)}</span>`);
-  chips.push(`<span class="chip">${PAGO_LABEL[p.pago] || p.pago}</span>`);
-  const hChip = horarioChip(p);
-  if (hChip) chips.push(hChip);
   if (p.accesible === true) chips.push(`<span class="chip">♿ ${t('accessible')}</span>`);
   if (p.cambiador === true) chips.push(`<span class="chip">🚼 ${t('changing_table')}</span>`);
   if (p.agrupacion && p.agrupacion.nombre) chips.push(`<span class="chip">🏢 ${t('inside_of')}: ${p.agrupacion.nombre}</span>`);
@@ -1317,6 +1406,24 @@ function openSheet(p) {
   updateFavBtn();
   $('sheet').classList.add('open');
   try { localStorage.setItem(SHEET_OPEN_KEY, '1'); } catch (_) {}
+}
+/* Fila de horario de la ficha: usa la misma confianza de apertura de 4
+   niveles que el resto de la app (ver openConfidence). Los aseos 24h se
+   muestran aparte porque no dependen del sistema de confianza (no hay
+   incertidumbre que expresar). */
+function renderSchedLine(p) {
+  const el = $('sSchedLine'); if (!el) return;
+  if (p.horario && p.horario.modo === '24h') {
+    el.textContent = t('open_24h');
+    el.className = 'sheet-line sched tier-100';
+    el.style.display = '';
+    return;
+  }
+  const conf = openConfidence(p);
+  if (!conf) { el.style.display = 'none'; return; }
+  el.textContent = openConfidenceLabel(conf);
+  el.className = `sheet-line sched tier-${conf.tier}`;
+  el.style.display = '';
 }
 function renderVisitInfo(p) {
   const el = $('sVisits'); if (!el) return;
@@ -1334,12 +1441,9 @@ function updateFavBtn() {
 }
 function updateSheetDistance() {
   if (!selected) return;
-  const el = $('sChips').querySelector('.chip.dist');
-  if (el) el.innerHTML = `${pinSvg()} ${fmtDist(selected.dist)} · ${fmtWalkMin(selected.dist)}`;
+  $('sDistLine').innerHTML = `${pinSvg()} ${fmtDist(selected.dist)} · ${fmtWalkMin(selected.dist)}`;
 }
 function pinSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'; }
-function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
-function crossSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 function closeSheet() {
   $('sheet').classList.remove('open');
@@ -1575,7 +1679,7 @@ const RADAR_SCALE_EXP = 0.55;                 // <1 = escala raíz: separa lo ce
    proporcionalmente (p.ej. con rango 60' pasan a ser 10'/20'/40'/60'). */
 const RADAR_RING_FRACS = [1 / 6, 1 / 3, 2 / 3, 1];
 const RADAR_RANGE_PRESETS_MIN = [5, 10, 20, 30, 60, 120];
-let radarRangeIdx = 3;   // 30 min, el rango original
+let radarRangeIdx = 1;   // 10 min por defecto: con 30 salía demasiada cosa a la vez
 let radarOpen = false;
 let radarMap = null;
 let lastRadarBearingUpdate = 0;
@@ -1611,11 +1715,24 @@ function setRadarRange(idx) {
   updateRadarRings();
   refreshRadar();
 }
+/* En el radar solo interesan los aseos de emergencia de los que estamos
+   SEGUROS que están abiertos ahora mismo (confianza 100%, ver
+   openConfidence): es el modo "lo necesito YA", donde la incertidumbre no
+   vale de nada. Los aseos oficiales/comunidad/estación no llevan ese
+   sistema de confianza (no aplica) y se muestran igual que siempre. */
+function radarCandidates(rangeM) {
+  return places.filter(p => {
+    if (p.dist == null || p.dist > rangeM) return false;
+    if (!EMERGENCY_TIPOS.has(p.tipo)) return true;
+    const conf = openConfidence(p);
+    return !!conf && conf.tier === 100;
+  }).slice(0, RADAR_BLIP_CAP);
+}
 function renderRadarBlips() {
   const g = $('radarBlipsGroup'); if (!g || !userPos) return;
   g.innerHTML = '';
   const rangeM = radarRangeMin() * 80;
-  const candidates = places.filter(p => p.dist != null && p.dist <= rangeM).slice(0, RADAR_BLIP_CAP);
+  const candidates = radarCandidates(rangeM);
   const emptyEl = $('radarEmpty');
   if (emptyEl) {
     emptyEl.style.display = candidates.length ? 'none' : 'block';
@@ -1628,6 +1745,7 @@ function renderRadarBlips() {
     const r = p === selected ? 7 : 4.5;
     const fav = isFav(p);
 
+    // solo circulitos de color, sin insignia adicional: menos ruido visual
     const c = document.createElementNS(ns, 'circle');
     c.setAttribute('cx', x.toFixed(1));
     c.setAttribute('cy', y.toFixed(1));
@@ -1639,21 +1757,6 @@ function renderRadarBlips() {
     title.textContent = p.nombre || tipoLabel(p.tipo);
     c.appendChild(title);
     g.appendChild(c);
-
-    /* insignia simplificada (demasiado pequeño para el glifo real): punto
-       sólido = aseo_oficial (100% confirmado), anillo hueco = el resto
-       (comunidad/estación/CC/bar/cafetería/fastfood - todo lo que es
-       "probablemente hay aseo" en vez de un aseo garantizado). */
-    const br = Math.max(1, r * 0.34);
-    const badge = document.createElementNS(ns, 'circle');
-    badge.setAttribute('cx', (x + r * 0.62).toFixed(1));
-    badge.setAttribute('cy', (y + r * 0.62).toFixed(1));
-    badge.setAttribute('r', br.toFixed(1));
-    badge.setAttribute('fill', fav ? '#fff' : (p.tipo === 'aseo_oficial' ? '#fff' : 'none'));
-    badge.setAttribute('stroke', '#fff');
-    badge.setAttribute('stroke-width', Math.max(0.6, br * 0.5).toFixed(1));
-    badge.style.pointerEvents = 'none';
-    g.appendChild(badge);
   }
 }
 function updateRadarRotation() {

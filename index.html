@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.14">
+  <link rel="stylesheet" href="styles.css?v=1.0.15">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.14</p>
+    <p class="version" id="appVersion">v1.0.15</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -140,6 +140,11 @@
     </button>
     <h2 class="name" id="sName">Aseo</h2>
     <p class="addr" id="sAddr"></p>
+    <div class="sheet-info">
+      <p class="sheet-line" id="sDistLine"></p>
+      <p class="sheet-line" id="sCatLine"></p>
+      <p class="sheet-line sched" id="sSchedLine" style="display:none"></p>
+    </div>
     <p class="visit-info" id="sVisits" style="display:none"></p>
     <div class="chips" id="sChips"></div>
     <div class="actions">
@@ -188,7 +193,7 @@
           <span class="track"><span class="knob"></span></span>
           <span class="stext" data-i18n="f_emergency_label">Aseos de emergencia</span>
         </label>
-        <button class="info-link" id="emergencyInfoBtn" type="button" data-i18n="f_emergency_info_link">¿Qué significa?</button>
+        <button class="info-link" id="emergencyInfoBtn" type="button" aria-label="Información" data-i18n-title="f_emergency_info_link" title="¿Qué significa?">🛈</button>
       </div>
 
       <div class="cat-grid" id="emergencyCats" style="display:none">
@@ -208,6 +213,15 @@
           <input type="checkbox" id="catCC" checked>
           <span><span class="cat-emoji">🛍️</span><span data-i18n="tipo_cc">Centro comercial</span></span>
         </label>
+      </div>
+
+      <div class="cert-select" id="certSelect" style="display:none">
+        <div class="flabel" data-i18n="cert_label">Certeza de apertura mínima</div>
+        <div class="segment" id="certSegment">
+          <button type="button" data-cert="100" data-i18n="cert_certain">Seguro</button>
+          <button type="button" data-cert="50" data-i18n="cert_probable">Probable</button>
+          <button type="button" data-cert="10" data-i18n="cert_any">Cualquiera</button>
+        </div>
       </div>
 
       <div class="filters-actions">
@@ -242,7 +256,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.14</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.15</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -399,7 +413,10 @@
 
         <g id="radarBlipsGroup"></g>
 
-        <circle class="radar-me" r="6" cx="0" cy="0"/>
+        <g class="radar-me">
+          <circle cx="0" cy="-6.5" r="2.6"/>
+          <path d="M-3 -3 Q0 -4.5 3 -3 L3.3 1.2 Q4.5 2.3 2.8 3.4 L1.6 2.6 Q3.2 6 1.1 8.6 Q0.2 6.3 -0.4 6.3 Q-1.7 8.7 -3.4 6.4 Q-1.2 3.3 -1.7 1.4 L-3.4 2.1 Q-5 0.9 -3.8 -0.6 Z"/>
+        </g>
       </svg>
     </div>
     <p class="radar-empty" id="radarEmpty" style="display:none" data-i18n="radar_empty">Nada en el radar (más de 30 min andando)</p>
@@ -411,7 +428,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.14"></script>
-  <script src="app.js?v=1.0.14"></script>
+  <script src="themes.js?v=1.0.15"></script>
+  <script src="app.js?v=1.0.15"></script>
 </body>
 </html>

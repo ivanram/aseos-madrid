@@ -438,8 +438,17 @@ def fetch_censo_locales_hosteleria():
     agrupaciones_cc = defaultdict(lambda: {"n": 0, "lat_sum": 0.0, "lon_sum": 0.0, "lat": None, "lon": None})
     seen_ids = set()
 
-    # para estimar horario por categoria cuando no hay dato real
-    horas_por_tipo = defaultdict(lambda: {"starts": [], "ends": []})
+    # para estimar horario por categoria cuando no hay dato real: por cada
+    # local con horario conocido guardamos la ventana COMPLETA (apertura del
+    # primer turno a cierre del último), no solo el primer turno — si no, un
+    # local con turno partido (p.ej. bar que cierra a comer y reabre de tarde)
+    # contaba solo su primer tramo y perdíamos la hora de cierre real, que es
+    # justo el dato que hace la estimación demasiado optimista o pesimista.
+    # También contamos cuántos locales declaran turno partido, para saber si
+    # a la categoría le toca "pausa de mediodía" en la estimación.
+    horas_por_tipo = defaultdict(lambda: {
+        "starts": [], "ends": [], "total": 0, "pausa_starts": [], "pausa_ends": []
+    })
 
     for row in reader:
         if row.get("desc_situacion_local", "").strip() != "Abierto":
@@ -489,13 +498,30 @@ def fetch_censo_locales_hosteleria():
             detalle = horario_detalle(*h)
             horario = {"modo": "conocido", "detalle": detalle} if detalle else {"modo": "desconocido", "detalle": None}
             if detalle:
-                s = to_minutes(h[0])
-                e = to_minutes(h[1])
-                if s is not None and e is not None:
-                    if e <= s:
-                        e += 1440
-                    horas_por_tipo[tipo]["starts"].append(s)
-                    horas_por_tipo[tipo]["ends"].append(e)
+                a1, c1, a2, c2 = h
+                s = to_minutes(a1)
+                e1 = to_minutes(c1)
+                if s is not None and e1 is not None:
+                    if e1 <= s:
+                        e1 += 1440
+                    e2 = to_minutes(c2) if (a2 and c2 and (a2, c2) != (a1, c1)) else None
+                    if e2 is not None:
+                        if e2 <= s:
+                            e2 += 1440
+                        # ventana completa: de la apertura del primer turno al
+                        # cierre del segundo (no solo el primer turno, o
+                        # perdemos el cierre real de los que hacen partida)
+                        horas_por_tipo[tipo]["starts"].append(s)
+                        horas_por_tipo[tipo]["ends"].append(e2)
+                        p_s = to_minutes(c1)
+                        p_e = to_minutes(a2)
+                        if p_s is not None and p_e is not None and p_e > p_s:
+                            horas_por_tipo[tipo]["pausa_starts"].append(p_s)
+                            horas_por_tipo[tipo]["pausa_ends"].append(p_e)
+                    else:
+                        horas_por_tipo[tipo]["starts"].append(s)
+                        horas_por_tipo[tipo]["ends"].append(e1)
+                    horas_por_tipo[tipo]["total"] += 1
         else:
             horario = {"modo": "desconocido", "detalle": None}  # se completa despues con la estimacion
 
@@ -513,18 +539,32 @@ def fetch_censo_locales_hosteleria():
             "verificado": fecha_iso(row.get("fx_carga", "")),
         })
 
-    # estimaciones de horario por categoria, calculadas a partir del propio censo
+    # Estimaciones de horario por categoria, calculadas a partir del propio
+    # censo: mediana de la ventana COMPLETA (apertura a cierre real, turno
+    # partido incluido) de los locales con horario declarado. Si al menos un
+    # tercio de esos locales declara turno partido, la categoria también
+    # lleva una "pausa" (mediana de cierre1/apertura2) — durante esa franja
+    # se trata como hora rara aunque esté dentro de la ventana general,
+    # porque muchos locales de esa categoria estarán cerrados a comer.
+    PAUSA_MIN_FRACCION = 0.3
     estimaciones = {}
     for tipo, vals in horas_por_tipo.items():
-        if vals["starts"]:
-            s = statistics.median(vals["starts"])
-            e = statistics.median(vals["ends"])
-            estimaciones[tipo] = f"{minutes_to_hhmm(s)}-{minutes_to_hhmm(e)}"
+        if not vals["starts"]:
+            continue
+        s = statistics.median(vals["starts"])
+        e = statistics.median(vals["ends"])
+        entry = {"ventana": f"{minutes_to_hhmm(s)}-{minutes_to_hhmm(e)}"}
+        if vals["pausa_starts"] and len(vals["pausa_starts"]) / vals["total"] >= PAUSA_MIN_FRACCION:
+            ps = statistics.median(vals["pausa_starts"])
+            pe = statistics.median(vals["pausa_ends"])
+            entry["pausa"] = f"{minutes_to_hhmm(ps)}-{minutes_to_hhmm(pe)}"
+        estimaciones[tipo] = entry
+    estimaciones["centro_comercial"] = {"ventana": CENTRO_COMERCIAL_HORARIO_ESTIMADO}
 
     # aplicar la estimacion a los que no tenian horario propio
     for rec in bar_fastfood_records:
         if rec["horario"]["modo"] == "desconocido" and estimaciones.get(rec["tipo"]):
-            rec["horario"] = {"modo": "estimado_categoria", "detalle": estimaciones[rec["tipo"]]}
+            rec["horario"] = {"modo": "estimado_categoria", "detalle": estimaciones[rec["tipo"]]["ventana"]}
 
     # construir los registros de centro_comercial a partir de las agrupaciones
     centro_comercial_records = []
