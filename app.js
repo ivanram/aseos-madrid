@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.7';
+const APP_VERSION = '1.0.8';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -659,7 +659,7 @@ function applyFilters() {
 if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
   filters.favOnly = false; filters.emergency = false;
   filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
-  saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView();
+  saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView(); updateFiltersBadge();
 });
 function readFilterUI() {
   filters.favOnly = $('fFav').checked;
@@ -673,8 +673,29 @@ function readFilterUI() {
 function updateEmergencyCatsUI() {
   $('emergencyCats').style.display = $('fEmergency').checked ? 'flex' : 'none';
 }
+/* cuenta cuántos filtros se apartan del estado neutro (nada activado, todas
+   las categorías incluidas), para el numerito del botón "Filtros". */
+function countActiveFilters() {
+  let n = 0;
+  if (filters.favOnly) n++;
+  if (filters.emergency) {
+    n++;
+    for (const k of ['bar', 'cafeteria', 'fastfood', 'centro_comercial']) {
+      if (filters.emergencyCats[k] === false) n++;
+    }
+  }
+  return n;
+}
+function updateFiltersBadge() {
+  const n = countActiveFilters();
+  const badge = $('filtersBadge');
+  const btn = $('filtersToggleBtn');
+  if (n > 0) { badge.textContent = n; badge.style.display = ''; btn.classList.add('active'); }
+  else { badge.style.display = 'none'; btn.classList.remove('active'); }
+}
 function onFilterChange() {
-  readFilterUI(); updateEmergencyCatsUI(); applyFilters(); rebuildMarkers(); renderListItems();
+  readFilterUI(); updateEmergencyCatsUI(); updateFiltersBadge();
+  applyFilters(); rebuildMarkers(); renderListItems();
   if (radarOpen) refreshRadar();
 }
 
@@ -701,20 +722,25 @@ function renderListItems() {
     </button>`;
   }).join('');
 }
-function setFiltersRowOpen(open) {
-  $('filtersRow').style.display = open ? 'flex' : 'none';
-  $('filtersToggleBtn').setAttribute('aria-expanded', String(open));
-}
-function openServicesSheet() {
-  closeSheet();
+function openFiltersPopup() {
   $('fFav').checked = filters.favOnly;
   $('fEmergency').checked = filters.emergency;
   $('catBar').checked = filters.emergencyCats.bar;
   $('catCafeteria').checked = filters.emergencyCats.cafeteria;
   $('catFastfood').checked = filters.emergencyCats.fastfood;
   $('catCC').checked = filters.emergencyCats.centro_comercial;
-  setFiltersRowOpen(false);
   updateEmergencyCatsUI();
+  $('filtersPopup').classList.add('open');
+  $('filtersToggleBtn').setAttribute('aria-expanded', 'true');
+}
+function closeFiltersPopup() {
+  $('filtersPopup').classList.remove('open');
+  $('filtersToggleBtn').setAttribute('aria-expanded', 'false');
+}
+function openServicesSheet() {
+  closeSheet();
+  closeFiltersPopup();
+  updateFiltersBadge();
   $('listSheet').classList.remove('maximized');
   listQuery = '';
   if ($('listSearch')) $('listSearch').value = '';
@@ -729,11 +755,23 @@ function closeServicesSheet(refit) {
 function toggleServicesSheet() { if ($('listSheet').classList.contains('open')) closeServicesSheet(); else openServicesSheet(); }
 $('count').addEventListener('click', toggleServicesSheet);
 $('listClose').addEventListener('click', closeServicesSheet);
-$('filtersToggleBtn').addEventListener('click', () => {
-  setFiltersRowOpen($('filtersRow').style.display === 'none');
+$('filtersToggleBtn').addEventListener('click', openFiltersPopup);
+$('filtersPopupClose').addEventListener('click', closeFiltersPopup);
+$('filtersPopup').addEventListener('click', (e) => { if (e.target === $('filtersPopup')) closeFiltersPopup(); });
+if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
+  filters.favOnly = false; filters.emergency = false;
+  filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
+  saveFilters(); applyFilters(); rebuildMarkers(); renderListItems(); updateFiltersBadge();
+  $('fFav').checked = false; $('fEmergency').checked = false;
+  $('catBar').checked = true; $('catCafeteria').checked = true;
+  $('catFastfood').checked = true; $('catCC').checked = true;
+  updateEmergencyCatsUI();
 });
+/* maximizar/desmaximizar la hoja según el scroll de la lista: al alejarte
+   del principio se expande a pantalla completa, y al volver arriba se
+   desmaximiza (bidireccional, no solo de ida). */
 $('listItems').addEventListener('scroll', () => {
-  if ($('listItems').scrollTop > 4) $('listSheet').classList.add('maximized');
+  $('listSheet').classList.toggle('maximized', $('listItems').scrollTop > 4);
 }, { passive: true });
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {

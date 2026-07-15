@@ -2,13 +2,13 @@
    Estrategia "network-first": si hay conexión, siempre sirve la versión
    más reciente (así las actualizaciones se ven al instante); si no hay
    conexión, tira de la copia cacheada. Mantiene la app usable offline. */
-const CACHE = 'aseos-madrid-v7';
+const CACHE = 'aseos-madrid-v8';
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=1.0.7',
-  './themes.js?v=1.0.7',
-  './app.js?v=1.0.7',
+  './styles.css?v=1.0.8',
+  './themes.js?v=1.0.8',
+  './app.js?v=1.0.8',
   './data/aseos.json',
   './languages/manifest.json',
   './languages/es.json',
