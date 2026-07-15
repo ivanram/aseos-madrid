@@ -55,10 +55,9 @@
     "ar_cam_err": "Couldn't open the camera. Check your permissions.", "ar_perm": "I need orientation permission for the compass.",
     "far_text": "This app only shows toilets and services in Madrid", "far_back": "Go back",
     "urgency_ok": "All under control", "urgency_warn": "Heads up", "urgency_caution": "Caution", "urgency_danger": "Red alert",
-    "urgency_detail": "Nearest free toilet: {min} min walk",
-    "urgency_alt": "{min} min: possible emergency toilet (paid or with purchase)",
-    "urgency_nodata": "No data on nearby free toilets",
+    "urgency_detail": "{place}, {min} min walk",
+    "urgency_nodata": "No reliable data nearby",
     "radar_empty": "Nothing on radar (more than {min} min walk)",
-    "radar_caption": "Tap a dot to see details"
+    "radar_caption": "Scanning…"
   }
 }

@@ -55,10 +55,9 @@
     "ar_cam_err": "Kan de camera niet openen. Controleer je machtigingen.", "ar_perm": "Ik heb toestemming voor oriëntatie nodig voor het kompas.",
     "far_text": "Deze app toont alleen toiletten en diensten in Madrid", "far_back": "Terug",
     "urgency_ok": "Alles onder controle", "urgency_warn": "Let op", "urgency_caution": "Voorzichtig", "urgency_danger": "Rood alarm",
-    "urgency_detail": "Dichtstbijzijnde gratis toilet: {min} min lopen",
-    "urgency_alt": "{min} min: mogelijk nood-toilet (betaald of met consumptie)",
-    "urgency_nodata": "Geen gegevens over gratis toiletten in de buurt",
+    "urgency_detail": "{place}, {min} min lopen",
+    "urgency_nodata": "Geen betrouwbare gegevens in de buurt",
     "radar_empty": "Niets op de radar (meer dan {min} min lopen)",
-    "radar_caption": "Tik op een punt voor details"
+    "radar_caption": "Aan het zoeken…"
   }
 }

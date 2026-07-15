@@ -55,10 +55,9 @@
     "ar_cam_err": "カメラを開けませんでした。権限を確認してください。", "ar_perm": "コンパスを使用するには方向センサーの権限が必要です。",
     "far_text": "このアプリはマドリード内のトイレと施設のみを表示します", "far_back": "戻る",
     "urgency_ok": "問題ありません", "urgency_warn": "注意", "urgency_caution": "警戒", "urgency_danger": "赤色警報",
-    "urgency_detail": "最寄りの無料トイレ：徒歩{min}分",
-    "urgency_alt": "{min}分：緊急用トイレの可能性あり（有料または利用条件あり）",
-    "urgency_nodata": "近くの無料トイレのデータがありません",
+    "urgency_detail": "{place}・徒歩{min}分",
+    "urgency_nodata": "近くに信頼できるデータがありません",
     "radar_empty": "レーダー範囲内になし（徒歩{min}分以上）",
-    "radar_caption": "点をタップすると詳細が表示されます"
+    "radar_caption": "検索中…"
   }
 }

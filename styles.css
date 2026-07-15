@@ -223,8 +223,15 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 .radar-sweep{ fill:url(#radarSweepGrad);opacity:.5; }
 .radar-heading-tick{ fill:#5df08f; }
 .radar-me{ fill:#eafff2;stroke:#0c2016;stroke-width:2; }
-.radar-blip{ cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1; }
+.radar-blip{ cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1;transition:filter .15s ease,stroke-width .15s ease; }
 .radar-blip.fav{ stroke:#fff;stroke-width:1.6; }
+/* Resalte persistente del blip "apuntado" (el que se anuncia arriba, ver
+   updateRadarAheadLabel): un halo suave y constante para poder localizarlo
+   de un vistazo entre el resto de puntos. */
+.radar-blip.ahead{ stroke:#fff;stroke-width:2px;filter:drop-shadow(0 0 6px rgba(255,255,255,.75)); }
+/* Resalte momentáneo al pasar el barrido del radar por encima (ver
+   updateRadarSweepHighlight): más intenso y breve que el anterior. */
+.radar-blip.swept{ stroke:#fff;stroke-width:2.4px;filter:drop-shadow(0 0 9px rgba(255,255,255,.95)); }
 #radar .ar-close{ background:rgba(0,0,0,.4); }
 .radar-zoom{
   position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:6;
@@ -239,7 +246,11 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 .radar-empty, .radar-caption{
   color:rgba(180,255,210,.65);font-size:.82rem;text-align:center;padding:0 30px;margin:0;
 }
-.radar-caption{ color:rgba(180,255,210,.4); }
+.radar-caption{
+  color:rgba(180,255,210,.4);transition:color .15s ease;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.radar-caption.active{ color:rgba(200,255,225,.95);font-weight:600; }
 
 /* ---------- Toast / loader ---------- */
 #toast{
@@ -495,7 +506,7 @@ header.bar .t:active{opacity:.6}
 #radarModeBtn{bottom:208px}
 #radarModeBtn svg{stroke:var(--blue-d)}
 #fitBtn{bottom:266px}
-#fitBtn svg{width:26px;height:26px;stroke:var(--blue-d)}
+#fitBtn svg{width:26px;height:26px;fill:var(--blue-d)}
 #mapMode .needle{transition:transform .25s ease-out}
 #mapMode.active{background:var(--blue)}
 #mapMode.active .needle polygon:last-child{fill:#bfe0ff}
@@ -691,18 +702,23 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 .slider::-webkit-slider-thumb{ -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3); }
 .slider::-moz-range-thumb{ width:22px;height:22px;border:none;border-radius:50%;background:var(--blue);cursor:pointer; }
 
-/* ---------- Panel de urgencia (aseo gratis más cercano) ---------- */
+/* ---------- Medidor de nivel de alerta (superpuesto al mapa) ----------
+   Antes era una franja fija entre la cabecera y el mapa (empujaba el mapa
+   hacia abajo); ahora flota sobre el propio mapa, como el resto de tarjetas
+   de la app (ver #emptyState, mismo patrón de "absolute + top mágico"
+   porque este es hermano de #map dentro de #app, no un hijo suyo). */
 #urgencyPanel{
-  display:none;flex-direction:column;gap:2px;
-  padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);
-  font-size:.88rem;flex:0 0 auto;
+  display:none;flex-direction:column;gap:10px;
+  position:absolute;left:50%;top:66px;transform:translateX(-50%);z-index:400;
+  width:min(88vw,360px);padding:10px 16px 14px;
+  background:var(--card);border-radius:16px;box-shadow:var(--shadow);
+  font-size:.88rem;
 }
 #urgencyPanel .urgency-main{ display:flex;align-items:center;gap:9px; }
 #urgencyPanel .urgency-icon{ font-size:1.15rem;line-height:1;flex:0 0 auto; }
 #urgencyPanel .urgency-text{ display:flex;flex-direction:column;line-height:1.28;min-width:0; }
 #urgencyPanel strong{ font-size:.92rem;letter-spacing:-.01em; }
 #urgencyPanel .urgency-text > span{ color:var(--muted);font-size:.84rem; }
-#urgencyPanel .urgency-alt{ margin-left:27px;font-size:.74rem;color:var(--muted); }
 #urgencyPanel.level-ok strong{ color:var(--ok); }
 #urgencyPanel.level-warn strong{ color:#b8860b; }
 #urgencyPanel.level-caution strong{ color:#c9660c; }
@@ -710,6 +726,25 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 html[data-theme="dark"] #urgencyPanel.level-warn strong{ color:#e0b34a; }
 html[data-theme="dark"] #urgencyPanel.level-caution strong{ color:#e8944f; }
 html[data-theme="dark"] #urgencyPanel.level-danger strong{ color:#ff8a7a; }
+/* Barra horizontal con los 4 tramos de color (inspirada en un velocímetro de
+   riesgo, pero recta) + una fecha/aguja que marca la posición actual dentro
+   del tramo correspondiente — ver alertNeedlePercent() en app.js. */
+.alert-bar{ position:relative;height:14px; }
+.alert-track{
+  display:flex;height:8px;border-radius:999px;overflow:hidden;
+  position:absolute;top:4px;left:0;right:0;
+}
+.alert-track .seg{ flex:1; }
+.seg-ok{ background:#2fae5c; }
+.seg-warn{ background:#e0b23a; }
+.seg-caution{ background:#e08a3a; }
+.seg-danger{ background:#d9503f; }
+.alert-needle{
+  position:absolute;top:-3px;left:0;width:0;height:0;
+  border-left:6px solid transparent;border-right:6px solid transparent;
+  border-top:8px solid var(--ink);
+  transform:translateX(-50%);transition:left .4s ease;
+}
 
 /* ---------- Menú contextual del modo desarrollador (clic derecho en el mapa) ---------- */
 .dev-context-menu{

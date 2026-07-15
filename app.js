@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.16';
+const APP_VERSION = '1.0.17';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -492,6 +492,11 @@ function openConfidence(p, now) {
     const turnos = parseRangoHorario(h.detalle);
     if (!turnos) return null;
     if (dentroDeTurno(turnos, minutos)) {
+      // el censo trae bastantes horarios de madrugada poco fiables (cierres
+      // "de madrugada" que en la práctica no son reales); en horas raras no
+      // damos el 100% ni con horario propio, solo los aseos oficiales 24h
+      // (que no pasan por este sistema de confianza) se libran del aviso
+      if (esHoraRara(minutos, null)) return { tier: 25, key: 'maybe_odd' };
       return { tier: 100, key: 'open_until', hhmm: minutesToHHMM(cierreDeTurnoActual(turnos, minutos)) };
     }
     return { tier: 0, key: 'closed_now' };
@@ -634,42 +639,78 @@ function checkOutsideMadrid() {
   if (nearestDistanceKm(userPos.lat, userPos.lon) > OUTSIDE_MADRID_KM) $('outsideModal').style.display = 'flex';
 }
 
-/* ---------- Panel de urgencia ---------- */
-/* Recorre TODO allPlaces (no el `places` filtrado): el aviso debe reflejar la
-   realidad aunque el usuario tenga desactivados los servicios de emergencia. */
-function nearestByPago(pagoSet) {
-  if (!userPos) return null;
-  let best = Infinity;
-  for (const p of allPlaces) {
-    if (!pagoSet.has(p.pago)) continue;
-    const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
-    if (d < best) best = d;
-  }
-  return isFinite(best) ? best : null;
+/* ---------- Nivel de alerta: distancia + probabilidad de apertura ----------
+   Antes el aviso solo miraba la distancia al aseo GRATIS más cercano, sin
+   tener en cuenta si de verdad estaba abierto ahora mismo — podía decir "todo
+   controlado" señalando un sitio a 3 min que en realidad llevaba horas
+   cerrado. Ahora cada candidato aporta una distancia "ajustada": los que no
+   tienen sistema de confianza (aseo oficial/comunidad/estación, ver
+   openConfidence) o tienen confianza total (tier 100) cuentan tal cual;
+   cuanto menos fiable el horario, más lejos se considera que está aunque en
+   línea recta esté cerca. Los que sabemos con certeza que están cerrados
+   (tier 0) no cuentan. No distinguimos gratis/de pago para esto: si lo más
+   fiable y cercano es un bar de pago, sigue resolviendo la urgencia.
+
+     confianza                                    multiplicador de distancia
+     sin sistema de confianza (oficial/comunidad/estación) o tier 100   ×1
+     tier 50  (estimado, hora normal)                                  ×1.5
+     tier 25  (hora rara: estimado, u horario real fuera de horas normales) ×2.5
+     tier 10  (fuera incluso de la ventana estimada)                   ×5
+     tier 0   (cerrado ahora, con certeza)                             excluido
+
+   La distancia ajustada del mejor candidato se traduce a minutos andando y
+   usa los mismos cortes de siempre (≤5 verde, ≤10 amarillo, ≤20 naranja, el
+   resto rojo). Recorre TODO allPlaces (no el `places` filtrado): el aviso
+   debe reflejar la realidad aunque el usuario tenga desactivados los
+   servicios de emergencia en los filtros. */
+const ALERT_TIER_MULT = { 100: 1, 50: 1.5, 25: 2.5, 10: 5 };
+function alertAdjustedDist(p) {
+  const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
+  if (!EMERGENCY_TIPOS.has(p.tipo)) return d;
+  const conf = openConfidence(p);
+  if (!conf) return d;
+  if (conf.tier === 0) return null;
+  return d * (ALERT_TIER_MULT[conf.tier] || 5);
 }
-const PAGO_GRATIS = new Set(['gratis']);
-const PAGO_ALTERNATIVA = new Set(['pago', 'consumicion']);
+function nearestAlertCandidate() {
+  if (!userPos) return null;
+  let best = null, bestAdj = Infinity;
+  for (const p of allPlaces) {
+    const adj = alertAdjustedDist(p);
+    if (adj != null && adj < bestAdj) { bestAdj = adj; best = p; }
+  }
+  return best ? { place: best, min: minutesWalk(bestAdj) } : null;
+}
+/* Posición (0-100%) de la aguja dentro de la barra: cada nivel ocupa un
+   cuarto del ancho, con una posición proporcional dentro de su propio rango
+   de minutos (satura en 100% a partir del doble del corte de "naranja"). */
+function alertNeedlePercent(min) {
+  if (min == null) return 100;
+  if (min <= 5) return (min / 5) * 25;
+  if (min <= 10) return 25 + ((min - 5) / 5) * 25;
+  if (min <= 20) return 50 + ((min - 10) / 10) * 25;
+  return Math.min(100, 75 + ((min - 20) / 20) * 25);
+}
 function updateUrgencyPanel() {
   const panel = $('urgencyPanel');
   if (!panel || !userPos || !allPlaces.length) return;
-  const freeMin = minutesWalk(nearestByPago(PAGO_GRATIS));
-  const altMin = minutesWalk(nearestByPago(PAGO_ALTERNATIVA));
-  const level = urgencyLevelFor(freeMin);
+  const cand = nearestAlertCandidate();
+  const level = urgencyLevelFor(cand ? cand.min : null);
 
   panel.className = 'level-' + level.key;
   $('urgencyIcon').textContent = level.icon;
   $('urgencyLabel').textContent = t(level.labelKey);
-  $('urgencyDetail').textContent = freeMin == null
-    ? t('urgency_nodata')
-    : t('urgency_detail').replace('{min}', freeMin);
-
-  const altEl = $('urgencyAlt');
-  if (altMin != null && freeMin != null && altMin < freeMin) {
-    altEl.textContent = t('urgency_alt').replace('{min}', altMin);
-    altEl.style.display = '';
+  if (cand) {
+    const pagoSuffix = (cand.place.pago === 'pago' || cand.place.pago === 'consumicion')
+      ? ` (${PAGO_LABEL[cand.place.pago].toLowerCase()})` : '';
+    $('urgencyDetail').textContent = t('urgency_detail')
+      .replace('{place}', tipoLabel(cand.place.tipo) + pagoSuffix)
+      .replace('{min}', cand.min);
   } else {
-    altEl.style.display = 'none';
+    $('urgencyDetail').textContent = t('urgency_nodata');
   }
+  const needle = $('alertNeedle');
+  if (needle) needle.style.left = alertNeedlePercent(cand ? cand.min : null) + '%';
   panel.style.display = 'flex';
 }
 $('teleportBtn').addEventListener('click', () => {
@@ -1734,9 +1775,11 @@ function radarCandidates(rangeM) {
   }).slice(0, RADAR_BLIP_CAP);
 }
 let radarCurrentCandidates = [];
+let radarBlipEls = new Map();   // id -> <circle>, para poder resaltar sin volver a dibujar todo
 function renderRadarBlips() {
   const g = $('radarBlipsGroup'); if (!g || !userPos) return;
   g.innerHTML = '';
+  radarBlipEls = new Map();
   const rangeM = radarRangeMin() * 80;
   const candidates = radarCandidates(rangeM);
   radarCurrentCandidates = candidates;
@@ -1749,7 +1792,7 @@ function renderRadarBlips() {
   for (const p of candidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
     const { x, y } = radarPointFor(p.dist, brg);
-    const r = p === selected ? 7 : 4.5;
+    const r = p === selected ? 9 : 6;
     const fav = isFav(p);
 
     // solo circulitos de color, sin insignia adicional: menos ruido visual
@@ -1764,17 +1807,27 @@ function renderRadarBlips() {
     title.textContent = p.nombre || tipoLabel(p.tipo);
     c.appendChild(title);
     g.appendChild(c);
+    radarBlipEls.set(p.id, c);
   }
   updateRadarAheadLabel();
 }
 const RADAR_AHEAD_CONE_DEG = 30;  // solo se anuncia si cae dentro de este cono hacia "delante"
+/* Marca con `cls` únicamente el blip cuyo id es `activeId` (o ninguno si es
+   null), recorriendo las referencias ya guardadas en vez de volver a
+   consultar el DOM. Sin estado propio (no recuerda el id anterior) para que
+   siga siendo correcto aunque renderRadarBlips() haya reconstruido los
+   elementos entre medias — si dependiera de "solo tocar si cambió el id"
+   se quedaría resaltando un <circle> ya descartado. */
+function applyRadarHighlight(cls, activeId) {
+  for (const [id, el] of radarBlipEls) el.classList.toggle(cls, id === activeId);
+}
 /* Cuál de los puntos visibles está más cerca de "delante de ti" (arriba en
    pantalla, no el norte fijo — el radar ya gira con la brújula para que
    arriba sea siempre hacia donde apuntas). Se recalcula en cada tick de
    brújula, no solo al redibujar los puntos, porque gira el mundo, no ellos. */
 function updateRadarAheadLabel() {
   const el = $('radarAhead'); if (!el) return;
-  if (!userPos || !radarCurrentCandidates.length) { el.style.display = 'none'; return; }
+  if (!userPos || !radarCurrentCandidates.length) { el.style.display = 'none'; applyRadarHighlight('ahead', null); return; }
   const heading = arHeading == null ? 0 : arHeading;
   let best = null, bestDiff = Infinity;
   for (const p of radarCurrentCandidates) {
@@ -1783,10 +1836,47 @@ function updateRadarAheadLabel() {
     const diff = Math.min(onScreenAngle, 360 - onScreenAngle);
     if (diff < bestDiff) { bestDiff = diff; best = p; }
   }
-  if (!best || bestDiff > RADAR_AHEAD_CONE_DEG) { el.style.display = 'none'; return; }
+  if (!best || bestDiff > RADAR_AHEAD_CONE_DEG) { el.style.display = 'none'; applyRadarHighlight('ahead', null); return; }
   $('radarAheadName').textContent = best.nombre || tipoLabel(best.tipo);
   $('radarAheadMeta').textContent = `${tipoLabel(best.tipo)} · ${fmtDist(best.dist)}`;
   el.style.display = 'flex';
+  applyRadarHighlight('ahead', best.id);
+}
+/* ---- Barrido del radar: antes era una <animateTransform> puramente
+   decorativa (SMIL), ahora la controla JS para poder saber en cada
+   instante sobre qué punto pasa el haz y así resaltarlo + anunciarlo
+   abajo (antes había un texto fijo "Toca un punto para ver el detalle"). ---- */
+const RADAR_SWEEP_PERIOD_MS = 12000;  // vuelta completa; antes 4s con SMIL, ahora más lento para poder seguirlo con la vista
+const RADAR_SWEEP_BEAM_DEG = 14;      // debe coincidir con el arco dibujado en el <path id="radarSweep">
+let radarSweepRAF = null;
+let radarSweepStartTs = null;
+function updateRadarSweepHighlight(sweepAngle) {
+  const captionEl = $('radarCaption');
+  if (!userPos) { applyRadarHighlight('swept', null); if (captionEl) { captionEl.classList.remove('active'); captionEl.textContent = t('radar_caption'); } return; }
+  const heading = arHeading == null ? 0 : arHeading;
+  let hit = null;
+  for (const p of radarCurrentCandidates) {
+    const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
+    const onScreenAngle = ((brg - heading) % 360 + 360) % 360;
+    const diff = ((onScreenAngle - sweepAngle) % 360 + 360) % 360;
+    if (diff <= RADAR_SWEEP_BEAM_DEG) { hit = p; break; }
+  }
+  applyRadarHighlight('swept', hit ? hit.id : null);
+  if (captionEl) {
+    captionEl.classList.toggle('active', !!hit);
+    captionEl.textContent = hit
+      ? `${hit.nombre || tipoLabel(hit.tipo)} · ${tipoLabel(hit.tipo)} · ${fmtDist(hit.dist)}`
+      : t('radar_caption');
+  }
+}
+function radarSweepTick(ts) {
+  if (!radarOpen) { radarSweepRAF = null; return; }
+  if (radarSweepStartTs == null) radarSweepStartTs = ts;
+  const angle = ((ts - radarSweepStartTs) / RADAR_SWEEP_PERIOD_MS * 360) % 360;
+  const sweepEl = $('radarSweep');
+  if (sweepEl) sweepEl.setAttribute('transform', `rotate(${angle.toFixed(2)})`);
+  updateRadarSweepHighlight(angle);
+  radarSweepRAF = requestAnimationFrame(radarSweepTick);
 }
 function updateRadarRotation() {
   const g = $('radarBlipsGroup'); if (!g) return;
@@ -1846,11 +1936,15 @@ function openRadarMode() {
   updateRadarRotation();
   ensureRadarMap();
   if (radarMap) { radarMap.invalidateSize(); updateRadarMap(); }
+  radarSweepStartTs = null;
+  if (radarSweepRAF) cancelAnimationFrame(radarSweepRAF);
+  radarSweepRAF = requestAnimationFrame(radarSweepTick);
 }
 function closeRadarMode() {
   radarOpen = false;
   $('radar').style.display = 'none';
   releaseCompass();
+  if (radarSweepRAF) { cancelAnimationFrame(radarSweepRAF); radarSweepRAF = null; }
 }
 if ($('radarModeBtn')) $('radarModeBtn').addEventListener('click', openRadarMode);
 if ($('radarClose')) $('radarClose').addEventListener('click', closeRadarMode);

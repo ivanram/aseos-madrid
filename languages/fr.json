@@ -55,10 +55,9 @@
     "ar_cam_err": "Impossible d'ouvrir la caméra. Vérifiez les autorisations.", "ar_perm": "J'ai besoin de l'autorisation d'orientation pour la boussole.",
     "far_text": "Cette application n'affiche que des toilettes et services à Madrid", "far_back": "Retour",
     "urgency_ok": "Tout est sous contrôle", "urgency_warn": "Attention", "urgency_caution": "Prudence", "urgency_danger": "Alerte rouge",
-    "urgency_detail": "Toilettes gratuites les plus proches : {min} min à pied",
-    "urgency_alt": "{min} min : toilettes de secours possibles (payantes ou avec consommation)",
-    "urgency_nodata": "Aucune donnée sur les toilettes gratuites à proximité",
+    "urgency_detail": "{place}, {min} min à pied",
+    "urgency_nodata": "Aucune donnée fiable à proximité",
     "radar_empty": "Rien sur le radar (plus de {min} min à pied)",
-    "radar_caption": "Touchez un point pour voir les détails"
+    "radar_caption": "Recherche en cours…"
   }
 }

@@ -55,10 +55,9 @@
     "ar_cam_err": "无法打开摄像头，请检查权限设置。", "ar_perm": "需要方向权限才能使用指南针。",
     "far_text": "该应用仅显示马德里的厕所和服务点", "far_back": "返回",
     "urgency_ok": "一切正常", "urgency_warn": "请注意", "urgency_caution": "需谨慎", "urgency_danger": "红色警报",
-    "urgency_detail": "最近的免费厕所：步行{min}分钟",
-    "urgency_alt": "{min}分钟：可能有应急厕所（付费或需消费）",
-    "urgency_nodata": "附近没有免费厕所的数据",
+    "urgency_detail": "{place}，步行{min}分钟",
+    "urgency_nodata": "附近没有可靠数据",
     "radar_empty": "雷达范围内没有结果（步行超过{min}分钟）",
-    "radar_caption": "点击圆点查看详情"
+    "radar_caption": "搜索中…"
   }
 }

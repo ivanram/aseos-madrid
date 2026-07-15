@@ -55,10 +55,9 @@
     "ar_cam_err": "Nie udało się otworzyć kamery. Sprawdź uprawnienia.", "ar_perm": "Potrzebuję uprawnień do orientacji, aby korzystać z kompasu.",
     "far_text": "Ta aplikacja pokazuje tylko toalety i usługi w Madrycie", "far_back": "Wróć",
     "urgency_ok": "Wszystko pod kontrolą", "urgency_warn": "Uwaga", "urgency_caution": "Ostrożnie", "urgency_danger": "Czerwony alarm",
-    "urgency_detail": "Najbliższa bezpłatna toaleta: {min} min pieszo",
-    "urgency_alt": "{min} min: możliwa toaleta awaryjna (płatna lub z konsumpcją)",
-    "urgency_nodata": "Brak danych o pobliskich bezpłatnych toaletach",
+    "urgency_detail": "{place}, {min} min pieszo",
+    "urgency_nodata": "Brak wiarygodnych danych w pobliżu",
     "radar_empty": "Nic na radarze (ponad {min} min pieszo)",
-    "radar_caption": "Dotknij punktu, aby zobaczyć szczegóły"
+    "radar_caption": "Szukanie…"
   }
 }

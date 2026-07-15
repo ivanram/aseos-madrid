@@ -55,10 +55,9 @@
     "ar_cam_err": "Kamera konnte nicht geöffnet werden. Überprüfe die Berechtigungen.", "ar_perm": "Ich benötige die Ausrichtungsberechtigung für den Kompass.",
     "far_text": "Diese App zeigt nur Toiletten und Services in Madrid", "far_back": "Zurück",
     "urgency_ok": "Alles unter Kontrolle", "urgency_warn": "Achtung", "urgency_caution": "Vorsicht", "urgency_danger": "Roter Alarm",
-    "urgency_detail": "Nächste kostenlose Toilette: {min} Min. zu Fuß",
-    "urgency_alt": "{min} Min.: mögliche Notfall-Toilette (kostenpflichtig oder mit Verzehrzwang)",
-    "urgency_nodata": "Keine Daten zu kostenlosen Toiletten in der Nähe",
+    "urgency_detail": "{place}, {min} Min. zu Fuß",
+    "urgency_nodata": "Keine verlässlichen Daten in der Nähe",
     "radar_empty": "Nichts im Radar (mehr als {min} Min. zu Fuß)",
-    "radar_caption": "Tippe auf einen Punkt für Details"
+    "radar_caption": "Suche läuft…"
   }
 }

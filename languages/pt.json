@@ -55,10 +55,9 @@
     "ar_cam_err": "Não foi possível abrir a câmera. Verifique as permissões.", "ar_perm": "Preciso de permissão de orientação para a bússola.",
     "far_text": "Este app mostra apenas banheiros e serviços em Madrid", "far_back": "Voltar",
     "urgency_ok": "Tudo sob controle", "urgency_warn": "Atenção", "urgency_caution": "Cuidado", "urgency_danger": "Alerta vermelho",
-    "urgency_detail": "Banheiro gratuito mais próximo: {min} min a pé",
-    "urgency_alt": "{min} min: possível banheiro de emergência (pago ou com consumo)",
-    "urgency_nodata": "Sem dados de banheiros gratuitos por perto",
+    "urgency_detail": "{place}, {min} min a pé",
+    "urgency_nodata": "Sem dados confiáveis por perto",
     "radar_empty": "Nada no radar (mais de {min} min a pé)",
-    "radar_caption": "Toque em um ponto para ver detalhes"
+    "radar_caption": "Buscando…"
   }
 }

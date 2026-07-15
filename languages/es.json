@@ -1,7 +1,7 @@
 {
   "meta": { "name": "Español" },
   "strings": {
-    "app_short": "Aseos", "app_full": "Aseos de Madrid",
+    "app_short": "Me cago", "app_full": "Me cago en Madrid",
     "loading_text": "Cargando aseos…", "splash_tag": "¿Dónde está el aseo más cercano?",
     "splash_desc": "Encuentra el aseo público más cercano, según los <a href=\"https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos\" target=\"_blank\" rel=\"noopener\">datos oficiales del Ayuntamiento</a>, y bares, fastfood o centros comerciales cercanos como alternativa.",
     "privacy1": "La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.",
@@ -55,10 +55,9 @@
     "ar_cam_err": "No se pudo abrir la cámara. Revisa los permisos.", "ar_perm": "Necesito permiso de orientación para la brújula.",
     "far_text": "Esta app solo muestra aseos y servicios en Madrid", "far_back": "Volver",
     "urgency_ok": "Todo bajo control", "urgency_warn": "Ojo", "urgency_caution": "Precaución", "urgency_danger": "Alerta roja",
-    "urgency_detail": "Aseo gratis más cercano: {min} min andando",
-    "urgency_alt": "{min} min: posible aseo de emergencia (de pago o con consumición)",
-    "urgency_nodata": "Sin datos de aseos gratis cerca",
+    "urgency_detail": "{place} a {min} min andando",
+    "urgency_nodata": "Sin datos fiables cerca",
     "radar_empty": "Nada en el radar (más de {min} min andando)",
-    "radar_caption": "Toca un punto para ver el detalle"
+    "radar_caption": "Buscando…"
   }
 }
