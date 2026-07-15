@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.13';
+const APP_VERSION = '1.0.14';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -757,11 +757,8 @@ function renderListItems() {
     </button>`;
   }).join('');
 }
-function setEmergencyInfoOpen(open) {
-  $('emergencyInfoPopover').style.display = open ? 'block' : 'none';
-  $('emergencyInfoBtn').classList.toggle('active', open);
-  $('emergencyInfoBtn').setAttribute('aria-expanded', String(open));
-}
+function openEmergencyInfoModal() { $('emergencyInfoModal').classList.add('open'); }
+function closeEmergencyInfoModal() { $('emergencyInfoModal').classList.remove('open'); }
 function openFiltersPopup() {
   filtersDraft = {
     favOnly: filters.favOnly,
@@ -769,7 +766,7 @@ function openFiltersPopup() {
     emergencyCats: Object.assign({}, filters.emergencyCats)
   };
   syncFilterCheckboxes(filtersDraft);
-  setEmergencyInfoOpen(false);
+  closeEmergencyInfoModal();
   $('filtersPopup').classList.add('open');
   $('filtersToggleBtn').setAttribute('aria-expanded', 'true');
 }
@@ -778,9 +775,10 @@ function closeFiltersPopup() {
   $('filtersToggleBtn').setAttribute('aria-expanded', 'false');
   filtersDraft = null;
 }
-$('emergencyInfoBtn').addEventListener('click', () => {
-  setEmergencyInfoOpen($('emergencyInfoPopover').style.display === 'none');
-});
+$('emergencyInfoBtn').addEventListener('click', openEmergencyInfoModal);
+$('emergencyInfoClose').addEventListener('click', closeEmergencyInfoModal);
+$('emergencyInfoOk').addEventListener('click', closeEmergencyInfoModal);
+$('emergencyInfoModal').addEventListener('click', (e) => { if (e.target === $('emergencyInfoModal')) closeEmergencyInfoModal(); });
 function openServicesSheet() {
   closeAllOverlays();
   updateFiltersBadge();

@@ -304,19 +304,28 @@ header.bar .count svg{width:15px;height:15px}
 .filters-switch{margin-bottom:20px}
 .switch-row{display:flex;align-items:center;gap:10px}
 .switch-row .switch{flex:1;min-width:0}
-.info-btn{
-  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
-  border:1px solid var(--line);background:var(--bg);color:var(--muted);
-  font-size:.85rem;cursor:pointer;padding:0;
-  display:flex;align-items:center;justify-content:center;
+/* enlace de texto plano, no un botón con relleno: un icono ℹ️ resaltado en
+   azul sólido quedaba muy pesado visualmente para un simple "más info" */
+.info-link{
+  flex:0 0 auto;border:none;background:none;padding:0;margin:0;
+  font-size:.84rem;font-weight:600;color:var(--blue-d);text-decoration:underline;
+  cursor:pointer;font-family:inherit;
 }
-.info-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-.info-popover{
-  background:var(--bg);border:1px solid var(--line);border-radius:12px;
-  padding:12px 14px;margin:-8px 0 20px;font-size:.86rem;color:var(--muted);line-height:1.45;
-}
-.info-popover p{margin:0}
 #filtersPopup .cat-grid{margin:6px 0 24px}
+
+/* ---------- Info de aseos de emergencia (ventana emergente sobre la de filtros) ---------- */
+#emergencyInfoModal{
+  position:fixed;inset:0;z-index:760;display:flex;align-items:center;justify-content:center;
+  background:rgba(10,22,38,0);pointer-events:none;transition:background .2s ease;padding:20px;
+}
+#emergencyInfoModal.open{background:rgba(10,22,38,.55);pointer-events:auto}
+.info-modal-card{
+  transform:scale(.94) translateY(10px);opacity:0;
+  transition:transform .2s cubic-bezier(.2,.8,.2,1), opacity .16s ease;
+}
+#emergencyInfoModal.open .info-modal-card{transform:scale(1) translateY(0);opacity:1}
+.info-modal-card p{margin:0 0 20px;color:var(--muted);line-height:1.5;font-size:.94rem}
+.info-modal-card .filters-accept{width:100%}
 
 /* rejilla 2x2 de categorías de emergencia */
 .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
