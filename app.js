@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.17';
+const APP_VERSION = '1.0.18';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
