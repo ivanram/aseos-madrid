@@ -14,6 +14,8 @@
     "sched_open_until": "Open until {hhmm}", "sched_closed_now": "Closed now",
     "sched_maybe_normal": "Might be open", "sched_maybe_odd": "May be open",
     "sched_unlikely": "Unlikely to be open",
+    "cert_info_link": "How do we know?",
+    "cert_info": "We try to estimate as accurately as possible whether a place is open right now, but we can't guarantee it: the lower the certainty you choose, the more results you'll see, but also the higher the risk it's closed.",
     "cert_label": "Minimum opening certainty", "cert_certain": "Certain", "cert_probable": "Probable", "cert_any": "Any",
     "f_show": "Show", "f_fountains": "places",
     "tipo_bar": "Bar", "tipo_cafeteria": "Café", "tipo_fastfood": "Fast food", "tipo_cc": "Shopping centre",

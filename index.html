@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.15">
+  <link rel="stylesheet" href="styles.css?v=1.0.16">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.15</p>
+    <p class="version" id="appVersion">v1.0.16</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -116,7 +116,11 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
     <button class="mapctl fitbtn" id="fitBtn" title="Encuadrar mi posición y el servicio" aria-label="Encuadrar el servicio" style="display:none">
-      <svg viewBox="0 0 24 24"><path d="M12 2.5 C12 2.5 4.5 11 4.5 16 a7.5 7.5 0 0 0 15 0 C19.5 11 12 2.5 12 2.5 Z" fill="#1f7fe0"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 12h11a1 1 0 0 1 1 1v1a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5v-1a1 1 0 0 1 1-1Z"/>
+        <path d="M8 12V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v7"/>
+        <path d="M5 12H4a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1"/>
+      </svg>
     </button>
     <button class="mapctl radarbtn" id="radarModeBtn" title="Modo radar" aria-label="Modo radar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 12 L18 7"/></svg>
@@ -131,20 +135,21 @@
   <!-- ============ INFO SHEET ============ -->
   <div id="sheet" role="dialog" aria-modal="true" aria-label="Información del servicio">
     <div class="grip"></div>
-    <button class="close" id="sheetClose" aria-label="Cerrar">×</button>
-    <button class="fav" id="favBtn" aria-label="Marcar como favorito" aria-pressed="false">
-      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-    </button>
-    <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
-    </button>
+    <div class="sheet-toolbar">
+      <button class="fav" id="favBtn" aria-label="Marcar como favorito" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </button>
+      <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
+      </button>
+    </div>
     <h2 class="name" id="sName">Aseo</h2>
     <p class="addr" id="sAddr"></p>
     <div class="sheet-info">
-      <p class="sheet-line" id="sDistLine"></p>
       <p class="sheet-line" id="sCatLine"></p>
-      <p class="sheet-line sched" id="sSchedLine" style="display:none"></p>
+      <p class="sheet-line" id="sDistLine"></p>
     </div>
+    <p class="sheet-line sched" id="sSchedLine" style="display:none"></p>
     <p class="visit-info" id="sVisits" style="display:none"></p>
     <div class="chips" id="sChips"></div>
     <div class="actions">
@@ -193,7 +198,9 @@
           <span class="track"><span class="knob"></span></span>
           <span class="stext" data-i18n="f_emergency_label">Aseos de emergencia</span>
         </label>
-        <button class="info-link" id="emergencyInfoBtn" type="button" aria-label="Información" data-i18n-title="f_emergency_info_link" title="¿Qué significa?">🛈</button>
+        <button class="info-link" id="emergencyInfoBtn" type="button" aria-label="Información" data-i18n-title="f_emergency_info_link" title="¿Qué significa?">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg>
+        </button>
       </div>
 
       <div class="cat-grid" id="emergencyCats" style="display:none">
@@ -216,7 +223,12 @@
       </div>
 
       <div class="cert-select" id="certSelect" style="display:none">
-        <div class="flabel" data-i18n="cert_label">Certeza de apertura mínima</div>
+        <div class="cert-label-row">
+          <div class="flabel" data-i18n="cert_label">Certeza de apertura mínima</div>
+          <button class="info-link" id="certInfoBtn" type="button" aria-label="Información" data-i18n-title="cert_info_link" title="¿Cómo lo sabemos?">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </div>
         <div class="segment" id="certSegment">
           <button type="button" data-cert="100" data-i18n="cert_certain">Seguro</button>
           <button type="button" data-cert="50" data-i18n="cert_probable">Probable</button>
@@ -241,6 +253,16 @@
     </div>
   </div>
 
+  <!-- ============ INFO: certeza de apertura (ventana emergente sobre la de filtros) ============ -->
+  <div id="certInfoModal" role="dialog" aria-modal="true" aria-label="Información">
+    <div class="filters-card info-modal-card">
+      <button class="close" id="certInfoClose" aria-label="Cerrar">×</button>
+      <h3 class="filters-title" data-i18n="cert_label">Certeza de apertura mínima</h3>
+      <p data-i18n="cert_info">Intentamos estimar lo mejor posible si un lugar está abierto ahora mismo, pero no podemos garantizarlo: cuanta menos certeza elijas, más resultados verás, pero también más riesgo de que esté cerrado.</p>
+      <button class="btn filters-accept" id="certInfoOk" data-i18n="f_emergency_info_ok">Entendido</button>
+    </div>
+  </div>
+
   <!-- ============ ABOUT ============ -->
   <div id="about">
     <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
@@ -256,7 +278,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.15</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.16</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -389,6 +411,10 @@
     </div>
     <div class="radar-wrap" id="radarWrap">
       <div id="radarMapBg"></div>
+      <div class="radar-ahead" id="radarAhead" style="display:none">
+        <span class="radar-ahead-name" id="radarAheadName"></span>
+        <span class="radar-ahead-meta" id="radarAheadMeta"></span>
+      </div>
       <svg id="radarSvg" viewBox="-160 -160 320 320">
         <defs>
           <radialGradient id="radarSweepGrad" cx="0" cy="0" r="140" gradientUnits="userSpaceOnUse">
@@ -396,14 +422,12 @@
             <stop offset="100%" stop-color="#5df08f" stop-opacity=".55"/>
           </radialGradient>
         </defs>
-        <circle r="35" class="radar-ring"/>
-        <circle r="70" class="radar-ring"/>
-        <circle r="105" class="radar-ring"/>
+        <circle r="47" class="radar-ring"/>
+        <circle r="93" class="radar-ring"/>
         <circle r="140" class="radar-ring"/>
-        <text x="38" y="4" class="radar-ring-label">5′</text>
-        <text x="73" y="4" class="radar-ring-label">10′</text>
-        <text x="108" y="4" class="radar-ring-label">20′</text>
-        <text x="143" y="4" class="radar-ring-label">30′</text>
+        <text x="50" y="4" class="radar-ring-label">3′</text>
+        <text x="96" y="4" class="radar-ring-label">7′</text>
+        <text x="143" y="4" class="radar-ring-label">10′</text>
 
         <path class="radar-sweep" d="M0,0 L0,-140 A140,140 0 0 1 34,-136 Z">
           <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="4s" repeatCount="indefinite"/>
@@ -428,7 +452,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.15"></script>
-  <script src="app.js?v=1.0.15"></script>
+  <script src="themes.js?v=1.0.16"></script>
+  <script src="app.js?v=1.0.16"></script>
 </body>
 </html>

@@ -14,6 +14,8 @@
     "sched_open_until": "{hhmm}まで営業", "sched_closed_now": "現在閉店中",
     "sched_maybe_normal": "営業している可能性あり", "sched_maybe_odd": "営業しているかもしれません",
     "sched_unlikely": "営業している可能性は低い",
+    "cert_info_link": "どうやってわかるの？",
+    "cert_info": "その場所が今営業しているかできる限り推定していますが、保証はできません。確実性を低く設定するほど表示される結果は増えますが、閉まっているリスクも高くなります。",
     "cert_label": "開店確実性の最低基準", "cert_certain": "確実", "cert_probable": "おそらく", "cert_any": "すべて",
     "f_show": "表示", "f_fountains": "件",
     "tipo_bar": "バー", "tipo_cafeteria": "カフェ", "tipo_fastfood": "ファストフード", "tipo_cc": "ショッピングセンター",

@@ -108,6 +108,22 @@ EPIGRAFE_A_TIPO = {
 
 CENTRO_COMERCIAL_HORARIO_ESTIMADO = "10:00-22:00"  # horario habitual regulado en España
 
+# Límites de plausibilidad por categoría (apertura más temprana, cierre más
+# tardío -en minutos desde medianoche, >1440 = madrugada del día siguiente-).
+# El censo trae horarios autodeclarados por cada local y a veces están mal
+# o desactualizados (p.ej. una cafetería de un mercado que en teoría cierra
+# a medianoche, cuando el propio mercado cierra mucho antes). No podemos
+# saber caso por caso si el dato es bueno, así que aplicamos un límite
+# razonable por categoría: si lo supera, no nos lo creemos y lo tratamos
+# como si no hubiera horario declarado (se rellena con la estimación de la
+# categoría, igual que cualquier otro local sin dato).
+HORARIO_LIMITES_PLAUSIBLES = {
+    "bar": (5 * 60, 4 * 60 + 1440),            # abre no antes de 05:00, cierra no después de 04:00 (+1 día)
+    "cafeteria": (5 * 60, 23 * 60),            # las cafeterías no suelen pasar de las 23:00
+    "fastfood": (6 * 60, 2 * 60 + 1440),       # cierra no después de 02:00 (+1 día)
+    "centro_comercial": (8 * 60, 23 * 60),     # regulación comercial española: no suelen pasar de las 22-23h
+}
+
 
 def _http_get_once(url, data=None, timeout=180):
     req = urllib.request.Request(
@@ -449,6 +465,7 @@ def fetch_censo_locales_hosteleria():
     horas_por_tipo = defaultdict(lambda: {
         "starts": [], "ends": [], "total": 0, "pausa_starts": [], "pausa_ends": []
     })
+    horarios_descartados = defaultdict(int)  # horarios declarados pero inverosímiles (ver HORARIO_LIMITES_PLAUSIBLES)
 
     for row in reader:
         if row.get("desc_situacion_local", "").strip() != "Abierto":
@@ -494,9 +511,9 @@ def fetch_censo_locales_hosteleria():
         agrupacion = {"nombre": smart_title(nombre_agrup), "tipo": tipo_agrup} if (nombre_agrup or tipo_agrup) else None
 
         h = horarios.get(id_local)
+        horario = {"modo": "desconocido", "detalle": None}  # se completa despues con la estimacion, salvo que sea plausible
         if h:
             detalle = horario_detalle(*h)
-            horario = {"modo": "conocido", "detalle": detalle} if detalle else {"modo": "desconocido", "detalle": None}
             if detalle:
                 a1, c1, a2, c2 = h
                 s = to_minutes(a1)
@@ -505,25 +522,32 @@ def fetch_censo_locales_hosteleria():
                     if e1 <= s:
                         e1 += 1440
                     e2 = to_minutes(c2) if (a2 and c2 and (a2, c2) != (a1, c1)) else None
+                    p_s = p_e = None
                     if e2 is not None:
+                        p_s, p_e = to_minutes(c1), to_minutes(a2)
                         if e2 <= s:
                             e2 += 1440
-                        # ventana completa: de la apertura del primer turno al
-                        # cierre del segundo (no solo el primer turno, o
-                        # perdemos el cierre real de los que hacen partida)
+                    # ventana completa: de la apertura del primer turno al
+                    # cierre del segundo (no solo el primer turno, o
+                    # perdemos el cierre real de los que hacen partida)
+                    cierre_final = e2 if e2 is not None else e1
+                    open_earliest, close_latest = HORARIO_LIMITES_PLAUSIBLES.get(tipo, (0, 4 * 60 + 1440))
+                    # en un turno partido, el cierre del primer turno (inicio del
+                    # descanso) debe ser anterior a la apertura del segundo; si no,
+                    # el propio dato del censo es contradictorio (p.ej.
+                    # "10:00-00:00, 17:00-20:00": dice que cierra a medianoche pero
+                    # ya habria reabierto a las 17:00) y no nos lo creemos
+                    turno_partido_valido = e2 is None or (p_s is not None and p_e is not None and p_s < p_e)
+                    if turno_partido_valido and open_earliest <= s and cierre_final <= close_latest:
+                        horario = {"modo": "conocido", "detalle": detalle}
                         horas_por_tipo[tipo]["starts"].append(s)
-                        horas_por_tipo[tipo]["ends"].append(e2)
-                        p_s = to_minutes(c1)
-                        p_e = to_minutes(a2)
-                        if p_s is not None and p_e is not None and p_e > p_s:
+                        horas_por_tipo[tipo]["ends"].append(cierre_final)
+                        if e2 is not None:
                             horas_por_tipo[tipo]["pausa_starts"].append(p_s)
                             horas_por_tipo[tipo]["pausa_ends"].append(p_e)
+                        horas_por_tipo[tipo]["total"] += 1
                     else:
-                        horas_por_tipo[tipo]["starts"].append(s)
-                        horas_por_tipo[tipo]["ends"].append(e1)
-                    horas_por_tipo[tipo]["total"] += 1
-        else:
-            horario = {"modo": "desconocido", "detalle": None}  # se completa despues con la estimacion
+                        horarios_descartados[tipo] += 1
 
         bar_fastfood_records.append({
             "id": "censo-" + id_local,
@@ -587,6 +611,9 @@ def fetch_censo_locales_hosteleria():
             "agrupacion": None,
             "verificado": None,
         })
+
+    if horarios_descartados:
+        print(f"  Horarios descartados por inverosimiles (fuera de HORARIO_LIMITES_PLAUSIBLES): {dict(horarios_descartados)}", file=sys.stderr)
 
     return bar_fastfood_records, centro_comercial_records, estimaciones
 

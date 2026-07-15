@@ -14,6 +14,8 @@
     "sched_open_until": "营业至 {hhmm}", "sched_closed_now": "目前已打烊",
     "sched_maybe_normal": "可能营业", "sched_maybe_odd": "也许营业",
     "sched_unlikely": "不太可能营业",
+    "cert_info_link": "我们是怎么知道的？",
+    "cert_info": "我们会尽力估算某个地方现在是否营业，但无法保证准确：选择的确定性越低，看到的结果越多，但打烊的风险也越高。",
     "cert_label": "最低营业确定性", "cert_certain": "确定", "cert_probable": "可能", "cert_any": "任意",
     "f_show": "显示", "f_fountains": "地点",
     "tipo_bar": "酒吧", "tipo_cafeteria": "咖啡馆", "tipo_fastfood": "快餐", "tipo_cc": "购物中心",

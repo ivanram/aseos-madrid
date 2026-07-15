@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.15';
+const APP_VERSION = '1.0.16';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -702,7 +702,7 @@ function closeAllOverlays() {
 }
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
-$('aboutBtn').addEventListener('click', () => { closeAllOverlays(); $('about').classList.add('open'); checkForUpdate(); });
+$('aboutBtn').addEventListener('click', () => { closeAllOverlays(); $('about').classList.add('open'); checkForUpdate(false, true); });
 $('aboutClose').addEventListener('click', () => $('about').classList.remove('open'));
 
 /* ============================================================
@@ -833,6 +833,8 @@ function renderListItems() {
 }
 function openEmergencyInfoModal() { $('emergencyInfoModal').classList.add('open'); }
 function closeEmergencyInfoModal() { $('emergencyInfoModal').classList.remove('open'); }
+function openCertInfoModal() { $('certInfoModal').classList.add('open'); }
+function closeCertInfoModal() { $('certInfoModal').classList.remove('open'); }
 function openFiltersPopup() {
   filtersDraft = {
     favOnly: filters.favOnly,
@@ -842,6 +844,7 @@ function openFiltersPopup() {
   };
   syncFilterCheckboxes(filtersDraft);
   closeEmergencyInfoModal();
+  closeCertInfoModal();
   $('filtersPopup').classList.add('open');
   $('filtersToggleBtn').setAttribute('aria-expanded', 'true');
 }
@@ -854,6 +857,10 @@ $('emergencyInfoBtn').addEventListener('click', openEmergencyInfoModal);
 $('emergencyInfoClose').addEventListener('click', closeEmergencyInfoModal);
 $('emergencyInfoOk').addEventListener('click', closeEmergencyInfoModal);
 $('emergencyInfoModal').addEventListener('click', (e) => { if (e.target === $('emergencyInfoModal')) closeEmergencyInfoModal(); });
+$('certInfoBtn').addEventListener('click', openCertInfoModal);
+$('certInfoClose').addEventListener('click', closeCertInfoModal);
+$('certInfoOk').addEventListener('click', closeCertInfoModal);
+$('certInfoModal').addEventListener('click', (e) => { if (e.target === $('certInfoModal')) closeCertInfoModal(); });
 function openServicesSheet() {
   closeAllOverlays();
   updateFiltersBadge();
@@ -1449,7 +1456,6 @@ function closeSheet() {
   $('sheet').classList.remove('open');
   try { localStorage.setItem(SHEET_OPEN_KEY, '0'); } catch (_) {}
 }
-$('sheetClose').addEventListener('click', closeSheet);
 
 function handleMarkerClick(p) {
   if (selected === p) { closeSheet(); setTarget(null); }
@@ -1673,11 +1679,10 @@ function retargetAR(p) {
    ============================================================ */
 const RADAR_OUTER_PX = 140;                   // debe coincidir con el radio máximo usado en el SVG
 const RADAR_BLIP_CAP = 150;                   // tope de puntos dibujados (legibilidad + rendimiento)
-const RADAR_SCALE_EXP = 0.55;                 // <1 = escala raíz: separa lo cercano, comprime lo lejano
-/* Fracciones fijas de anillo: con el rango por defecto (30') reproducen
-   exactamente 5'/10'/20'/30' como se pidió; al hacer zoom se re-escalan
-   proporcionalmente (p.ej. con rango 60' pasan a ser 10'/20'/40'/60'). */
-const RADAR_RING_FRACS = [1 / 6, 1 / 3, 2 / 3, 1];
+/* 3 anillos equidistantes (antes 4, con una escala raíz que comprimía lo
+   lejano): ahora la distancia real y la distancia en pantalla son
+   directamente proporcionales, sin trucos de escala. */
+const RADAR_RING_FRACS = [1 / 3, 2 / 3, 1];
 const RADAR_RANGE_PRESETS_MIN = [5, 10, 20, 30, 60, 120];
 let radarRangeIdx = 1;   // 10 min por defecto: con 30 salía demasiada cosa a la vez
 let radarOpen = false;
@@ -1689,7 +1694,7 @@ function fmtRadarMin(min) {
   const v = min < 10 ? Math.round(min * 2) / 2 : Math.round(min);
   return (Number.isInteger(v) ? v : v.toFixed(1)) + '′';
 }
-function radarRatioToPx(ratio) { return Math.pow(Math.min(ratio, 1), RADAR_SCALE_EXP) * RADAR_OUTER_PX; }
+function radarRatioToPx(ratio) { return Math.min(ratio, 1) * RADAR_OUTER_PX; }
 function radarPointFor(dist, brg) {
   const r = radarRatioToPx(dist / (radarRangeMin() * 80));
   const rad = toRad(brg);
@@ -1728,11 +1733,13 @@ function radarCandidates(rangeM) {
     return !!conf && conf.tier === 100;
   }).slice(0, RADAR_BLIP_CAP);
 }
+let radarCurrentCandidates = [];
 function renderRadarBlips() {
   const g = $('radarBlipsGroup'); if (!g || !userPos) return;
   g.innerHTML = '';
   const rangeM = radarRangeMin() * 80;
   const candidates = radarCandidates(rangeM);
+  radarCurrentCandidates = candidates;
   const emptyEl = $('radarEmpty');
   if (emptyEl) {
     emptyEl.style.display = candidates.length ? 'none' : 'block';
@@ -1758,11 +1765,34 @@ function renderRadarBlips() {
     c.appendChild(title);
     g.appendChild(c);
   }
+  updateRadarAheadLabel();
+}
+const RADAR_AHEAD_CONE_DEG = 30;  // solo se anuncia si cae dentro de este cono hacia "delante"
+/* Cuál de los puntos visibles está más cerca de "delante de ti" (arriba en
+   pantalla, no el norte fijo — el radar ya gira con la brújula para que
+   arriba sea siempre hacia donde apuntas). Se recalcula en cada tick de
+   brújula, no solo al redibujar los puntos, porque gira el mundo, no ellos. */
+function updateRadarAheadLabel() {
+  const el = $('radarAhead'); if (!el) return;
+  if (!userPos || !radarCurrentCandidates.length) { el.style.display = 'none'; return; }
+  const heading = arHeading == null ? 0 : arHeading;
+  let best = null, bestDiff = Infinity;
+  for (const p of radarCurrentCandidates) {
+    const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
+    const onScreenAngle = ((brg - heading) % 360 + 360) % 360;
+    const diff = Math.min(onScreenAngle, 360 - onScreenAngle);
+    if (diff < bestDiff) { bestDiff = diff; best = p; }
+  }
+  if (!best || bestDiff > RADAR_AHEAD_CONE_DEG) { el.style.display = 'none'; return; }
+  $('radarAheadName').textContent = best.nombre || tipoLabel(best.tipo);
+  $('radarAheadMeta').textContent = `${tipoLabel(best.tipo)} · ${fmtDist(best.dist)}`;
+  el.style.display = 'flex';
 }
 function updateRadarRotation() {
   const g = $('radarBlipsGroup'); if (!g) return;
   const heading = arHeading == null ? 0 : arHeading;
   g.setAttribute('transform', `rotate(${-heading})`);
+  updateRadarAheadLabel();
   updateRadarMapBearing();
 }
 function refreshRadar() {
@@ -2003,7 +2033,7 @@ function reflectUpdate() {
     b.innerHTML = `<span id="aboutVersion">v${APP_VERSION}</span>`;
   }
 }
-function checkForUpdate(auto) {
+function checkForUpdate(auto, silent) {
   fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
     .then(r => (r && r.ok) ? r.json() : null)
     .then(d => {
@@ -2017,7 +2047,9 @@ function checkForUpdate(auto) {
           forceUpdate();
           return;
         }
-        toast(`${t('update_available')} (v${d.version})`);
+        // silent: se llama desde "Acerca de", que ya muestra "Actualizar a
+        // vX.X.X" en pantalla — el aviso ahí sería redundante.
+        if (!silent) toast(`${t('update_available')} (v${d.version})`);
       }
     })
     .catch(() => {});

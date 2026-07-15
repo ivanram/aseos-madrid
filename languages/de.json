@@ -14,6 +14,8 @@
     "sched_open_until": "Geöffnet bis {hhmm}", "sched_closed_now": "Jetzt geschlossen",
     "sched_maybe_normal": "Könnte geöffnet sein", "sched_maybe_odd": "Vielleicht geöffnet",
     "sched_unlikely": "Wahrscheinlich geschlossen",
+    "cert_info_link": "Woher wissen wir das?",
+    "cert_info": "Wir versuchen so gut wie möglich abzuschätzen, ob ein Ort gerade geöffnet ist, können es aber nicht garantieren: Je weniger Sicherheit du wählst, desto mehr Ergebnisse siehst du, aber auch desto höher ist das Risiko, dass er geschlossen ist.",
     "cert_label": "Mindestsicherheit der Öffnung", "cert_certain": "Sicher", "cert_probable": "Wahrscheinlich", "cert_any": "Beliebig",
     "f_show": "Anzeigen", "f_fountains": "Orte",
     "tipo_bar": "Bar", "tipo_cafeteria": "Café", "tipo_fastfood": "Fast Food", "tipo_cc": "Einkaufszentrum",

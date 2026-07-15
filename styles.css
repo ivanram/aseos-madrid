@@ -139,7 +139,9 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 .sheet-line{margin:0 0 6px;font-size:.94rem;color:var(--ink);display:flex;align-items:center;gap:7px}
 .sheet-line:last-child{margin-bottom:0}
 .sheet-line svg{width:17px;height:17px;flex:0 0 auto;color:var(--muted)}
-.sheet-line.sched{font-weight:700}
+/* separado del resto con más aire: es otra tipografía/color (la confianza
+   de apertura), y quedaba demasiado pegado al bloque de arriba */
+.sheet-line.sched{font-weight:700;margin:10px 0 18px;font-size:.98rem}
 .sheet-line.sched.tier-100{color:var(--ok)}
 .sheet-line.sched.tier-0{color:#c0392b}
 .sheet-line.sched.tier-50{color:#b8860b}
@@ -158,10 +160,6 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 .chip svg{width:17px;height:17px}
 #sheet .actions{display:flex;gap:10px}
 #sheet .actions .btn{flex:1;font-size:.96rem;padding:14px 10px}
-#sheet .close{
-  position:absolute;top:12px;right:14px;border:none;background:var(--bg);
-  width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.1rem;
-}
 
 /* ---------- AR overlay ---------- */
 #ar{position:fixed;inset:0;z-index:900;display:none;background:#000}
@@ -197,6 +195,20 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
   border-radius:50%;overflow:hidden;
   box-shadow:0 0 0 2px rgba(80,240,150,.25), 0 0 50px rgba(0,0,0,.65) inset;
 }
+/* lugar más cercano a "delante de ti" (arriba en pantalla, no el norte fijo):
+   vive fuera del grupo que rota con la brújula, para que el texto siempre
+   se lea recto sea cual sea tu orientación. */
+.radar-ahead{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:5;
+  max-width:80%;text-align:center;pointer-events:none;
+  background:rgba(3,10,6,.55);border-radius:12px;padding:6px 14px;
+  display:flex;flex-direction:column;gap:1px;
+}
+.radar-ahead-name{
+  color:#eafff2;font-size:.86rem;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.radar-ahead-meta{color:rgba(180,255,210,.75);font-size:.72rem}
 /* Mapa real de fondo, apenas visible: mismo truco de invert+hue-rotate que
    ya usan los temas de mapa oscuros de la app (ver MAP_THEMES en themes.js),
    aquí llevado al verde del radar. Gira en JS junto con los blips. */
@@ -331,25 +343,30 @@ header.bar .count svg{width:15px;height:15px}
 .info-link{
   flex:0 0 auto;width:28px;height:28px;border-radius:50%;
   border:1px solid var(--line);background:var(--bg);color:var(--muted);
-  font-size:1rem;line-height:1;cursor:pointer;padding:0;
+  cursor:pointer;padding:0;
   display:flex;align-items:center;justify-content:center;font-family:inherit;
 }
+/* icono dibujado en SVG, no un emoji: 🛈 no se renderiza en muchos móviles
+   (soporte de fuente muy pobre) y se veía en blanco */
+.info-link svg{width:16px;height:16px}
 .info-link:active{background:var(--line)}
 #filtersPopup .cat-grid{margin:6px 0 24px}
 .cert-select{margin:-4px 0 24px}
-.cert-select .flabel{margin-bottom:9px}
+.cert-label-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.cert-label-row .flabel{margin-bottom:0}
 
-/* ---------- Info de aseos de emergencia (ventana emergente sobre la de filtros) ---------- */
-#emergencyInfoModal{
+/* ---------- Info de aseos de emergencia / certeza de apertura (ventanas
+   emergentes por encima de la de filtros) ---------- */
+#emergencyInfoModal, #certInfoModal{
   position:fixed;inset:0;z-index:760;display:flex;align-items:center;justify-content:center;
   background:rgba(10,22,38,0);pointer-events:none;transition:background .2s ease;padding:20px;
 }
-#emergencyInfoModal.open{background:rgba(10,22,38,.55);pointer-events:auto}
+#emergencyInfoModal.open, #certInfoModal.open{background:rgba(10,22,38,.55);pointer-events:auto}
 .info-modal-card{
   transform:scale(.94) translateY(10px);opacity:0;
   transition:transform .2s cubic-bezier(.2,.8,.2,1), opacity .16s ease;
 }
-#emergencyInfoModal.open .info-modal-card{transform:scale(1) translateY(0);opacity:1}
+#emergencyInfoModal.open .info-modal-card, #certInfoModal.open .info-modal-card{transform:scale(1) translateY(0);opacity:1}
 .info-modal-card p{margin:0 0 20px;color:var(--muted);line-height:1.5;font-size:.94rem}
 .info-modal-card .filters-accept{width:100%}
 
@@ -475,10 +492,10 @@ header.bar .t:active{opacity:.6}
 #recenter{bottom:92px}
 #recenter svg{stroke:var(--blue-d);fill:none}
 #mapMode{bottom:150px}
-#fitBtn{bottom:208px}
-#fitBtn svg{width:26px;height:26px}
-#radarModeBtn{bottom:266px}
+#radarModeBtn{bottom:208px}
 #radarModeBtn svg{stroke:var(--blue-d)}
+#fitBtn{bottom:266px}
+#fitBtn svg{width:26px;height:26px;stroke:var(--blue-d)}
 #mapMode .needle{transition:transform .25s ease-out}
 #mapMode.active{background:var(--blue)}
 #mapMode.active .needle polygon:last-child{fill:#bfe0ff}
@@ -538,15 +555,18 @@ header.bar .t:active{opacity:.6}
   font-size:.84rem;color:var(--muted);text-decoration:underline;text-underline-offset:3px;
 }
 
-/* ---------- Favorite button (info sheet) ---------- */
-#sheet .fav{
-  position:absolute;top:10px;right:54px;border:none;background:var(--bg);
+/* ---------- Barra de acciones (info sheet): en flujo normal, no flotando
+   encima del nombre — con nombres largos de 2 líneas, unos botones en
+   position:absolute se solapaban con el texto. ---------- */
+.sheet-toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px}
+.sheet-toolbar .fav{
+  border:none;background:var(--bg);
   width:38px;height:38px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
-#sheet .fav svg{width:21px;height:21px;fill:none;stroke:#e2476a;stroke-width:2}
-#sheet .fav.on{background:#ffe9ec}
-#sheet .fav.on svg{fill:#e2476a;stroke:#e2476a}
-#sheet #shareBtn{right:98px}
+.sheet-toolbar .fav svg{width:21px;height:21px;fill:none;stroke:#e2476a;stroke-width:2}
+.sheet-toolbar .fav.on{background:#ffe9ec}
+.sheet-toolbar .fav.on svg{fill:#e2476a;stroke:#e2476a}
+.sheet-toolbar #shareBtn svg{stroke:var(--muted)}
 #sheet #shareBtn svg{stroke:var(--muted)}
 
 /* ---------- AR 3D arrow + target marker ---------- */

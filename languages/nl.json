@@ -14,6 +14,8 @@
     "sched_open_until": "Open tot {hhmm}", "sched_closed_now": "Nu gesloten",
     "sched_maybe_normal": "Zou open kunnen zijn", "sched_maybe_odd": "Misschien open",
     "sched_unlikely": "Waarschijnlijk niet open",
+    "cert_info_link": "Hoe weten we dit?",
+    "cert_info": "We proberen zo goed mogelijk in te schatten of een plek nu open is, maar we kunnen het niet garanderen: hoe minder zekerheid je kiest, hoe meer resultaten je ziet, maar ook hoe groter het risico dat het gesloten is.",
     "cert_label": "Minimale zekerheid van openheid", "cert_certain": "Zeker", "cert_probable": "Waarschijnlijk", "cert_any": "Willekeurig",
     "f_show": "Tonen", "f_fountains": "plekken",
     "tipo_bar": "Bar", "tipo_cafeteria": "Café", "tipo_fastfood": "Fastfood", "tipo_cc": "Winkelcentrum",
