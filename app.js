@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.11';
+const APP_VERSION = '1.0.12';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -816,51 +816,43 @@ if ($('filtersResetBtn')) $('filtersResetBtn').addEventListener('click', () => {
   applyFiltersState({ favOnly: false, emergency: false, emergencyCats: { bar: true, cafeteria: true, fastfood: true, centro_comercial: true } });
   closeFiltersPopup();
 });
-/* maximizar/desmaximizar la hoja según el scroll de la lista: al alejarte
-   del principio se expande a pantalla completa, y al volver arriba se
-   desmaximiza (bidireccional, no solo de ida). */
-$('listItems').addEventListener('scroll', () => {
-  $('listSheet').classList.toggle('maximized', $('listItems').scrollTop > 4);
-}, { passive: true });
-/* seguir deslizando hacia abajo una vez ya está en modo panel (arriba del
-   todo y sin maximizar) minimiza la hoja hasta cerrarla del todo — mismo
-   patrón que enableSheetDrag() para la ficha de un servicio. */
-(function enableListSheetDrag() {
-  const sheet = $('listSheet'), scroller = $('listItems');
-  /* El bug real de las versiones anteriores: decidíamos "¿puede este gesto
-     cerrar la hoja?" UNA sola vez, en touchstart, mirando si ya estábamos
-     maximizados. Pero el gesto real del usuario es continuo: empieza
-     maximizado, arrastra hacia abajo, la lista llega arriba del todo (se
-     desmaximiza sola a mitad de gesto) y sigue arrastrando sin soltar el
-     dedo — para entonces ya habíamos decidido "no armado" y no había
-     marcha atrás. Ahora se reevalúa en cada touchmove: en cuanto scrollTop
-     llega a 0 (sin importar si fue al principio o a mitad del gesto), el
-     resto del arrastre pasa a mover la hoja en vez de hacer scroll nativo. */
-  let startY = null, dragging = false, dragOriginY = 0, dy = 0;
-  scroller.addEventListener('touchstart', (e) => {
-    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) { startY = null; return; }
+/* Maximizar/minimizar/cerrar la hoja de servicios se controla solo desde el
+   tirador ("-----"), nunca desde el scroll o el arrastre dentro de la
+   lista: son gestos distintos (scrollear la lista vs. redimensionar la
+   hoja) y mezclarlos en el mismo elemento obligaba a adivinar la intención
+   del usuario, lo que nunca acabó de funcionar bien en el móvil real. El
+   tirador no tiene contenido scrolleable, así que no hay ninguna pelea con
+   el scroll nativo — se puede arrastrar sin más. */
+(function enableListSheetGripDrag() {
+  const sheet = $('listSheet'), grip = $('listSheetGrip');
+  const UP_THRESHOLD = 40;      // arrastrar el tirador hacia arriba más de esto, estando en modo panel, maximiza
+  const DOWN_CLOSE = 90;        // hacia abajo desde modo panel: cierra
+  const DOWN_COMPACT = 40;      // hacia abajo desde maximizado: vuelve a modo panel
+  const DOWN_CLOSE_FROM_MAX = 160; // hacia abajo desde maximizado, de un tirón: cierra directamente
+  let startY = null, dy = 0, wasMaximized = false;
+  grip.addEventListener('touchstart', (e) => {
     startY = e.touches[0].clientY;
-    dragging = false; dy = 0;
-  }, { passive: true });
-  scroller.addEventListener('touchmove', (e) => {
-    if (startY == null) return;
-    const y = e.touches[0].clientY;
-    if (!dragging) {
-      if (scroller.scrollTop <= 2 && y > startY) { dragging = true; dragOriginY = y; }
-      else return;   // aún hay lista que hacer scroll nativo: no interferir
-    }
-    dy = Math.max(0, y - dragOriginY);
+    dy = 0;
+    wasMaximized = sheet.classList.contains('maximized');
     sheet.style.transition = 'none';
-    sheet.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`;
+  }, { passive: true });
+  grip.addEventListener('touchmove', (e) => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    const xPart = window.innerWidth >= 760 ? 'translateX(-50%) ' : '';
+    const visualDy = dy < 0 ? Math.max(dy, -40) : dy;   // el "tirón hacia arriba" no se ve más allá de 40px, es solo feedback
+    sheet.style.transform = `${xPart}translateY(${visualDy}px)`;
     e.preventDefault();
   }, { passive: false });
-  scroller.addEventListener('touchend', () => {
-    if (dragging) {
-      sheet.style.transition = '';
-      sheet.style.transform = '';
-      if (dy > 90) closeServicesSheet();
-    }
-    startY = null; dragging = false; dy = 0;
+  grip.addEventListener('touchend', () => {
+    if (startY == null) return;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+    if (!wasMaximized && dy <= -UP_THRESHOLD) sheet.classList.add('maximized');
+    else if (wasMaximized && dy >= DOWN_CLOSE_FROM_MAX) closeServicesSheet();
+    else if (wasMaximized && dy >= DOWN_COMPACT) sheet.classList.remove('maximized');
+    else if (!wasMaximized && dy >= DOWN_CLOSE) closeServicesSheet();
+    startY = null; dy = 0;
   });
 })();
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });

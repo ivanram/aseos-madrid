@@ -250,7 +250,14 @@ header.bar .count svg{width:15px;height:15px}
   display:flex;flex-direction:column;
 }
 #listSheet.open{transform:translateY(0)}
-#listSheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:8px auto 14px;flex:0 0 auto}
+/* el tirador es la única zona que arrastra para maximizar/minimizar/cerrar
+   (ver enableListSheetGripDrag en app.js): así no compite nunca con el
+   scroll nativo de la lista, que es un gesto totalmente distinto. El área
+   de toque es más alta que la barrita visual para que sea fácil de agarrar. */
+#listSheet .grip-handle{
+  flex:0 0 auto;padding:10px 0 12px;margin:-2px 0 0;touch-action:none;cursor:grab;
+}
+#listSheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:0 auto}
 #listSheet .name{font-size:1.18rem;font-weight:700;margin:0 0 12px;letter-spacing:-.01em;flex:0 0 auto}
 #listSheet .close{
   position:absolute;top:12px;right:14px;border:none;background:var(--bg);
