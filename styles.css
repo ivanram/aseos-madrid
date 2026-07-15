@@ -295,6 +295,20 @@ header.bar .count svg{width:15px;height:15px}
 }
 .filters-title{font-size:1.1rem;font-weight:700;margin:0 0 22px;letter-spacing:-.01em}
 .filters-switch{margin-bottom:20px}
+.switch-row{display:flex;align-items:center;gap:10px}
+.switch-row .switch{flex:1;min-width:0}
+.info-btn{
+  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
+  border:1px solid var(--line);background:var(--bg);color:var(--muted);
+  font-size:.85rem;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.info-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.info-popover{
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;margin:-8px 0 20px;font-size:.86rem;color:var(--muted);line-height:1.45;
+}
+.info-popover p{margin:0}
 #filtersPopup .cat-grid{margin:6px 0 24px}
 
 /* rejilla 2x2 de categorías de emergencia */

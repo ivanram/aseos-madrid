@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.10';
+const APP_VERSION = '1.0.11';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -757,6 +757,11 @@ function renderListItems() {
     </button>`;
   }).join('');
 }
+function setEmergencyInfoOpen(open) {
+  $('emergencyInfoPopover').style.display = open ? 'block' : 'none';
+  $('emergencyInfoBtn').classList.toggle('active', open);
+  $('emergencyInfoBtn').setAttribute('aria-expanded', String(open));
+}
 function openFiltersPopup() {
   filtersDraft = {
     favOnly: filters.favOnly,
@@ -764,6 +769,7 @@ function openFiltersPopup() {
     emergencyCats: Object.assign({}, filters.emergencyCats)
   };
   syncFilterCheckboxes(filtersDraft);
+  setEmergencyInfoOpen(false);
   $('filtersPopup').classList.add('open');
   $('filtersToggleBtn').setAttribute('aria-expanded', 'true');
 }
@@ -772,6 +778,9 @@ function closeFiltersPopup() {
   $('filtersToggleBtn').setAttribute('aria-expanded', 'false');
   filtersDraft = null;
 }
+$('emergencyInfoBtn').addEventListener('click', () => {
+  setEmergencyInfoOpen($('emergencyInfoPopover').style.display === 'none');
+});
 function openServicesSheet() {
   closeAllOverlays();
   updateFiltersBadge();
@@ -818,37 +827,40 @@ $('listItems').addEventListener('scroll', () => {
    patrón que enableSheetDrag() para la ficha de un servicio. */
 (function enableListSheetDrag() {
   const sheet = $('listSheet'), scroller = $('listItems');
-  let armed = false, startY = null, dy = 0, active = false;
+  /* El bug real de las versiones anteriores: decidíamos "¿puede este gesto
+     cerrar la hoja?" UNA sola vez, en touchstart, mirando si ya estábamos
+     maximizados. Pero el gesto real del usuario es continuo: empieza
+     maximizado, arrastra hacia abajo, la lista llega arriba del todo (se
+     desmaximiza sola a mitad de gesto) y sigue arrastrando sin soltar el
+     dedo — para entonces ya habíamos decidido "no armado" y no había
+     marcha atrás. Ahora se reevalúa en cada touchmove: en cuanto scrollTop
+     llega a 0 (sin importar si fue al principio o a mitad del gesto), el
+     resto del arrastre pasa a mover la hoja en vez de hacer scroll nativo. */
+  let startY = null, dragging = false, dragOriginY = 0, dy = 0;
   scroller.addEventListener('touchstart', (e) => {
-    /* "armado" se decide aquí, no en cada touchmove: en el primer touchmove
-       de un gesto es cuando el navegador decide si es scroll nativo o no, así
-       que hay que poder llamar preventDefault() desde ese primer movimiento
-       (no solo cuando dy>0), o algunos navegadores móviles ya se han quedado
-       con el gesto para el scroll nativo y no hay marcha atrás. Tolerancia de
-       2px en scrollTop porque el rebote/inercia deja restos de subpíxel. */
-    armed = !sheet.classList.contains('maximized') && scroller.scrollTop <= 2 &&
-      !(e.target.closest('button') || e.target.closest('input') || e.target.closest('a'));
-    startY = armed ? e.touches[0].clientY : null;
-    dy = 0; active = false;
+    if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    dragging = false; dy = 0;
   }, { passive: true });
   scroller.addEventListener('touchmove', (e) => {
-    if (!armed || startY == null) return;
-    dy = e.touches[0].clientY - startY;
-    if (dy > 0) {
-      active = true;
-      sheet.style.transition = 'none';
-      sheet.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`;
+    if (startY == null) return;
+    const y = e.touches[0].clientY;
+    if (!dragging) {
+      if (scroller.scrollTop <= 2 && y > startY) { dragging = true; dragOriginY = y; }
+      else return;   // aún hay lista que hacer scroll nativo: no interferir
     }
+    dy = Math.max(0, y - dragOriginY);
+    sheet.style.transition = 'none';
+    sheet.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`;
     e.preventDefault();
   }, { passive: false });
   scroller.addEventListener('touchend', () => {
-    if (startY == null) return;
-    if (active) {
+    if (dragging) {
       sheet.style.transition = '';
       sheet.style.transform = '';
       if (dy > 90) closeServicesSheet();
     }
-    armed = false; startY = null; dy = 0; active = false;
+    startY = null; dragging = false; dy = 0;
   });
 })();
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });

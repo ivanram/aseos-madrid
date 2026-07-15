@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.10">
+  <link rel="stylesheet" href="styles.css?v=1.0.11">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.10</p>
+    <p class="version" id="appVersion">v1.0.11</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -179,14 +179,20 @@
       <label class="switch filters-switch">
         <input type="checkbox" id="fFav">
         <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_fav_chip">Favoritos</span>
+        <span class="stext">❤️ <span data-i18n="f_fav_chip">Mostrar solo favoritos</span></span>
       </label>
 
-      <label class="switch filters-switch">
-        <input type="checkbox" id="fEmergency">
-        <span class="track"><span class="knob"></span></span>
-        <span class="stext" data-i18n="f_emergency_label">Aseos de emergencia</span>
-      </label>
+      <div class="switch-row filters-switch">
+        <label class="switch">
+          <input type="checkbox" id="fEmergency">
+          <span class="track"><span class="knob"></span></span>
+          <span class="stext" data-i18n="f_emergency_label">Aseos de emergencia</span>
+        </label>
+        <button class="info-btn" id="emergencyInfoBtn" type="button" aria-expanded="false" aria-label="Información" data-i18n-title="f_emergency_info_title" title="Información">ℹ️</button>
+      </div>
+      <div class="info-popover" id="emergencyInfoPopover" style="display:none">
+        <p data-i18n="f_emergency_info">No está garantizado que tengan aseo disponible. A veces hace falta pagar o consumir algo para poder usarlo.</p>
+      </div>
 
       <div class="cat-grid" id="emergencyCats" style="display:none">
         <label class="cat-tile">
@@ -229,7 +235,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.10</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.11</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -398,7 +404,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.10"></script>
-  <script src="app.js?v=1.0.10"></script>
+  <script src="themes.js?v=1.0.11"></script>
+  <script src="app.js?v=1.0.11"></script>
 </body>
 </html>
