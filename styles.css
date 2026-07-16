@@ -77,7 +77,12 @@ header.bar .t{font-weight:700;font-size:1.02rem;letter-spacing:-.01em}
 header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
   background:var(--bg);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
 
-#map{flex:1;width:100%;background:#dfe8f1}
+#mapWrap{position:relative;flex:1;min-height:0}
+/* Leaflet fuerza position:relative inline en su contenedor al iniciar (para
+   que sus propios panes internos, con position:absolute, se posicionen bien)
+   — eso pisa cualquier position:absolute que le pongamos aquí, así que en
+   vez de pelearnos con eso lo llenamos con width/height 100% normal. */
+#map{width:100%;height:100%;background:#dfe8f1}
 
 #settings .set-footer{
   text-align:center;font-size:.78rem;color:var(--muted);
@@ -704,12 +709,12 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 
 /* ---------- Medidor de nivel de alerta (superpuesto al mapa) ----------
    Antes era una franja fija entre la cabecera y el mapa (empujaba el mapa
-   hacia abajo); ahora flota sobre el propio mapa, como el resto de tarjetas
-   de la app (ver #emptyState, mismo patrón de "absolute + top mágico"
-   porque este es hermano de #map dentro de #app, no un hijo suyo). */
+   hacia abajo); ahora flota sobre el propio mapa. Vive dentro de #mapWrap
+   (position:relative, ver más arriba), así que "top" es relativo al propio
+   mapa y no depende de adivinar la altura de la cabecera. */
 #urgencyPanel{
   display:none;flex-direction:column;gap:10px;
-  position:absolute;left:50%;top:66px;transform:translateX(-50%);z-index:400;
+  position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:400;
   width:min(88vw,360px);padding:10px 16px 14px;
   background:var(--card);border-radius:16px;box-shadow:var(--shadow);
   font-size:.88rem;

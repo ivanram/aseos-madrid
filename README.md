@@ -8,9 +8,8 @@ comparte mapa, temas, ajustes y mecánica general.
 ## Fuentes de datos (por prioridad)
 
 1. **Aseos oficiales** — [Ayuntamiento de Madrid](https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos) (CC BY 4.0). Gratis, 24h, accesibles.
-2. **Bares/cafeterías/fastfood y centros comerciales** — [Censo de Locales, Actividades y Terrazas](https://datos.madrid.es/dataset/200085-0-censo-locales) del Ayuntamiento (CC BY 4.0), actualizado a diario, filtrado por locales con situación "Abierto". Se prefirió al censo frente a OSM para estas categorías por tener mucha mejor cobertura y frescura.
-3. **Aseos de comunidad** — [OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL), vía Overpass API, solo para aseos no cubiertos por el dataset oficial.
-4. **Estaciones** — Atocha y Chamartín (media/larga distancia), fijadas a mano.
+2. **Bares/cafeterías/fastfood y centros comerciales** — [Censo de Locales, Actividades y Terrazas](https://datos.madrid.es/dataset/200085-0-censo-locales) del Ayuntamiento (CC BY 4.0), actualizado a diario, filtrado por locales con situación "Abierto".
+3. **Estaciones** — Atocha y Chamartín (media/larga distancia), fijadas a mano.
 
 ## Uso local
 

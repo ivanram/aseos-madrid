@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.18';
+const APP_VERSION = '1.0.20';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -31,17 +31,17 @@ const MADRID_SOL = { lat: 40.4168, lon: -3.7038 };
 
 /* ---------- Categorías ---------- */
 const TIPO_LABEL = {
-  aseo_oficial: 'Aseo público', aseo_comunidad: 'Aseo (comunidad)',
+  aseo_oficial: 'Aseo público',
   bar: 'Bar', cafeteria: 'Cafetería', fastfood: 'Comida rápida',
   centro_comercial: 'Centro comercial', estacion: 'Estación'
 };
 const TIPO_EMOJI = {
-  aseo_oficial: '🚻', aseo_comunidad: '🚻', bar: '🍺', cafeteria: '☕', fastfood: '🍔',
+  aseo_oficial: '🚻', bar: '🍺', cafeteria: '☕', fastfood: '🍔',
   centro_comercial: '🛍️', estacion: '🚉'
 };
-/* aseo_oficial/aseo_comunidad siguen el color de acento elegido en ajustes
-   (como las fuentes); el resto de categorías llevan un color fijo propio,
-   para distinguirlas de un vistazo como "candidatas", no "aseo confirmado". */
+/* aseo_oficial sigue el color de acento elegido en ajustes (como las
+   fuentes); el resto de categorías llevan un color fijo propio, para
+   distinguirlas de un vistazo como "candidatas", no "aseo confirmado". */
 const TIPO_COLOR_FIJO = { bar: '#F2A007', cafeteria: '#8B5A32', fastfood: '#E94378', centro_comercial: '#12b886', estacion: '#7048e8' };
 const PAGO_LABEL = { gratis: 'Gratis', pago: 'De pago', consumicion: 'Con consumición', desconocido: 'Pago desconocido' };
 const EMERGENCY_TIPOS = new Set(['bar', 'cafeteria', 'fastfood', 'centro_comercial']);
@@ -68,7 +68,7 @@ function urgencyLevelFor(min) {
 let map, userMarker, accCircle, placeCluster, selectedMarker;
 let allPlaces = [];       // todo lo cargado del JSON
 let ESTIMACIONES_HORARIO = {}; // { tipo: { ventana: "HH:MM-HH:MM", pausa?: "HH:MM-HH:MM" } }, ver openConfidence()
-let corePlaces = [];      // aseo_oficial + aseo_comunidad + estacion (para el aviso de "fuera de Madrid", barato de recorrer)
+let corePlaces = [];      // aseo_oficial + estacion (para el aviso de "fuera de Madrid", barato de recorrer)
 let places = [];          // tras aplicar filtros, ordenado por cercanía
 let userPos = null;
 let geoWatchId = null;
@@ -428,11 +428,9 @@ function makePlace(p) { return Object.assign({}, p, { marker: null, dist: null }
 
 /* ============================================================
    CONFIANZA DE APERTURA (solo categorías "de emergencia": bar,
-   cafetería, fastfood, centro comercial — para aseo_oficial/aseo_comunidad
-   el concepto de "horario comercial" no aplica igual, y en aseo_comunidad
-   el dato real que trae OSM viene en formato opening_hours (sintaxis por
-   día de la semana), no en el "HH:MM-HH:MM" simple del censo, así que no
-   intentamos parsearlo aquí — se queda sin nivel de confianza).
+   cafetería, fastfood, centro comercial — para aseo_oficial/estación el
+   concepto de "horario comercial" no aplica igual, así que no intentamos
+   estimar su apertura: se quedan sin nivel de confianza).
 
    4 niveles:
      100 → dato real declarado y ahora mismo dentro de un turno: "Abierto hasta HH:MM"
@@ -453,8 +451,7 @@ function minutesToHHMM(mins) {
 }
 /* "08:00-02:00" o "08:00-14:00, 17:00-20:00" -> [[inicioMin,finMin], ...],
    con "fin" pasado de medianoche (>1440) si el turno cruza la noche.
-   Devuelve null si el texto no encaja con este formato simple (p.ej. la
-   sintaxis opening_hours de OSM que trae aseo_comunidad). */
+   Devuelve null si el texto no encaja con este formato simple. */
 function parseRangoHorario(str) {
   if (!str) return null;
   const turnos = [];
@@ -644,18 +641,21 @@ function checkOutsideMadrid() {
    tener en cuenta si de verdad estaba abierto ahora mismo — podía decir "todo
    controlado" señalando un sitio a 3 min que en realidad llevaba horas
    cerrado. Ahora cada candidato aporta una distancia "ajustada": los que no
-   tienen sistema de confianza (aseo oficial/comunidad/estación, ver
-   openConfidence) o tienen confianza total (tier 100) cuentan tal cual;
-   cuanto menos fiable el horario, más lejos se considera que está aunque en
-   línea recta esté cerca. Los que sabemos con certeza que están cerrados
-   (tier 0) no cuentan. No distinguimos gratis/de pago para esto: si lo más
-   fiable y cercano es un bar de pago, sigue resolviendo la urgencia.
+   tienen sistema de confianza (aseo oficial/estación, ver openConfidence) o
+   tienen confianza total (tier 100) cuentan tal cual; cuanto menos fiable el
+   horario, más lejos se considera que está aunque en línea recta esté cerca.
+   Los que sabemos con certeza que están cerrados (tier 0) no cuentan, y
+   tampoco los "poco probable que estén abiertos" (tier 10): puede haber
+   muchos bares cerca, pero si lo más probable es que estén cerrados no
+   sirven para tranquilizar a nadie. No distinguimos gratis/de pago para
+   esto: si lo más fiable y cercano es un bar de pago, sigue resolviendo la
+   urgencia.
 
      confianza                                    multiplicador de distancia
-     sin sistema de confianza (oficial/comunidad/estación) o tier 100   ×1
+     sin sistema de confianza (oficial/estación) o tier 100             ×1
      tier 50  (estimado, hora normal)                                  ×1.5
      tier 25  (hora rara: estimado, u horario real fuera de horas normales) ×2.5
-     tier 10  (fuera incluso de la ventana estimada)                   ×5
+     tier 10  (poco probable que esté abierto)                         excluido
      tier 0   (cerrado ahora, con certeza)                             excluido
 
    La distancia ajustada del mejor candidato se traduce a minutos andando y
@@ -663,14 +663,14 @@ function checkOutsideMadrid() {
    resto rojo). Recorre TODO allPlaces (no el `places` filtrado): el aviso
    debe reflejar la realidad aunque el usuario tenga desactivados los
    servicios de emergencia en los filtros. */
-const ALERT_TIER_MULT = { 100: 1, 50: 1.5, 25: 2.5, 10: 5 };
+const ALERT_TIER_MULT = { 100: 1, 50: 1.5, 25: 2.5 };
 function alertAdjustedDist(p) {
   const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
   if (!EMERGENCY_TIPOS.has(p.tipo)) return d;
   const conf = openConfidence(p);
   if (!conf) return d;
-  if (conf.tier === 0) return null;
-  return d * (ALERT_TIER_MULT[conf.tier] || 5);
+  if (conf.tier === 0 || conf.tier === 10) return null;
+  return d * (ALERT_TIER_MULT[conf.tier] || 1);
 }
 function nearestAlertCandidate() {
   if (!userPos) return null;
@@ -1039,7 +1039,6 @@ const PIN_HEART = '<path fill="#fff" d="M198 214c-5-5-22-16-22-29 0-15 18-20 22-
 const PIN_BADGE_UNCONFIRMED = '<path fill="none" stroke="#fff" stroke-linecap="round" stroke-width="10" d="M187 178c1-11 23-13 23 2 0 10-12 10-12 20"/><circle cx="198" cy="214" r="5" fill="#fff"/>';
 const PIN_BADGE = {
   aseo_oficial: '<path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="11" d="m180 190 12 12 24-27"/>',
-  aseo_comunidad: PIN_BADGE_UNCONFIRMED,
   estacion: PIN_BADGE_UNCONFIRMED,
   centro_comercial: PIN_BADGE_UNCONFIRMED,
   bar: '<g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"><path d="M181 174h34l-5 15c-4 12-20 12-24 0Z"/><path d="M198 198v15m-12 0h24"/></g>',
@@ -1271,6 +1270,12 @@ function fitInitialView() {
   const dLon = radius / (111320 * Math.cos(toRad(userPos.lat)));
   const bounds = L.latLngBounds([userPos.lat - dLat, userPos.lon - dLon], [userPos.lat + dLat, userPos.lon + dLon]);
   map.fitBounds(bounds, { padding: [40, 40], maxZoom: 18 });
+  // al encuadrar los resultados (p.ej. tras aplicar un filtro) queremos ver
+  // los puntos sueltos, no agrupados en un cluster: si el encuadre automático
+  // se queda por debajo del zoom de "sin clustering", forzamos ese mínimo.
+  if (map.getZoom() < clusterSettings.disableClusteringAtZoom) {
+    map.setZoom(clusterSettings.disableClusteringAtZoom);
+  }
   toast(`${t('nearest')}: ${fmtDist(near.dist)}`);
 }
 

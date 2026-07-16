@@ -21,11 +21,7 @@ Prioridad de fuentes (de más a menos fiable):
      mucha mejor cobertura y frescura, y trae horario real declarado en ~42% de
      los casos.
 
-  3. OpenStreetMap (vía Overpass API, ODbL) -> tipo "aseo_comunidad": únicamente
-     los aseos sueltos (amenity=toilets) no cubiertos por el dataset oficial de
-     aseos. Es el único caso donde no hay alternativa oficial.
-
-  4. 2 estaciones de Adif (media/larga distancia) fijadas a mano: Atocha y
+  3. 2 estaciones de Adif (media/larga distancia) fijadas a mano: Atocha y
      Chamartín. Se excluyen Cercanías y Metro (decisión de producto): el aseo de
      Príncipe Pío, por ejemplo, pertenece en realidad al centro comercial anexo,
      no a la estación.
@@ -48,15 +44,10 @@ import statistics
 import sys
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
 
-MADRID_BOUNDARY = (
-    'area["name"="Madrid"]["boundary"="administrative"]["admin_level"="8"]->.a;'
-)
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 AYTO_ASEOS_API = (
     "https://datos.madrid.es/api/action/package_show?id=300103-0-aseos-publicos-operativos"
 )
@@ -65,8 +56,6 @@ CENSO_API = (
 )
 CENSO_LOCALES_RESOURCE_ID = "200085-1-censo-locales"     # tiene hora_apertura/cierre
 CENSO_ACTIVIDADES_RESOURCE_ID = "200085-5-censo-locales"  # tiene epigrafe + agrupacion
-
-MATCH_THRESHOLD_M = 60  # radio para considerar un aseo de OSM "el mismo" que uno oficial
 
 # Estaciones Adif de media/larga distancia en Madrid capital (fijadas a mano:
 # confirmado que Príncipe Pío no cuenta -> el aseo pertenece al centro comercial
@@ -154,13 +143,6 @@ def http_get(url, data=None, timeout=180, retries=4, backoff_s=15):
             print(f"  Fallo de red ({e}) en {url[:80]}..., reintentando en {wait}s...", file=sys.stderr)
             time.sleep(wait)
     raise last_err
-
-
-def overpass(query, retries=4, backoff_s=20):
-    """La instancia pública de Overpass devuelve 429/504 a menudo bajo carga;
-    reintenta con espera creciente antes de rendirse."""
-    body = ("data=" + urllib.parse.quote(query)).encode("utf-8")
-    return json.loads(http_get(OVERPASS_URL, data=body, timeout=120, retries=retries, backoff_s=backoff_s).decode("utf-8"))["elements"]
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -307,76 +289,7 @@ def fetch_ayto_aseos():
             "cambiador": True,       # idem
             "verificado": meta["result"].get("issued"),
         })
-    return records, [(r["lat"], r["lon"]) for r in records]
-
-
-# ---------------------------------------------------------------------------
-# 2. Aseos "de comunidad" (OSM, no cubiertos por el dataset oficial)
-# ---------------------------------------------------------------------------
-
-def fetch_osm_toilets():
-    query = f"""
-    [out:json][timeout:60];
-    {MADRID_BOUNDARY}
-    (
-      node["amenity"="toilets"](area.a);
-      way["amenity"="toilets"](area.a);
-    );
-    out center tags;
-    """
-    return overpass(query)
-
-
-def yn(tag_value):
-    if tag_value is None:
-        return None
-    v = tag_value.strip().lower()
-    if v in ("yes", "designated", "limited"):
-        return True
-    if v in ("no",):
-        return False
-    return None
-
-
-def pago_from_fee(fee_value):
-    if fee_value is None:
-        return "desconocido"
-    v = fee_value.strip().lower()
-    if v == "yes":
-        return "pago"
-    if v == "no":
-        return "gratis"
-    return "desconocido"
-
-
-def build_aseo_comunidad(el):
-    if el["type"] == "node":
-        lat, lon = el.get("lat"), el.get("lon")
-    else:
-        c = el.get("center", {})
-        lat, lon = c.get("lat"), c.get("lon")
-    if lat is None:
-        return None
-
-    t = el.get("tags", {})
-    return {
-        "id": f"osm-{el['type']}-{el['id']}",
-        "tipo": "aseo_comunidad",
-        "source": "osm",
-        "lat": lat,
-        "lon": lon,
-        "nombre": t.get("name") or None,
-        "direccion": t.get("addr:street") or None,
-        "pago": pago_from_fee(t.get("fee")),
-        "horario": (
-            {"modo": "conocido", "detalle": t.get("opening_hours")}
-            if t.get("opening_hours")
-            else {"modo": "desconocido", "detalle": None}
-        ),
-        "accesible": yn(t.get("wheelchair")),
-        "cambiador": yn(t.get("changing_table")),
-        "verificado": t.get("check_date"),
-    }
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -624,23 +537,8 @@ def fetch_censo_locales_hosteleria():
 
 def main():
     print("Descargando aseos oficiales (Ayuntamiento)...", file=sys.stderr)
-    ayto_records, ayto_coords = fetch_ayto_aseos()
+    ayto_records = fetch_ayto_aseos()
     print(f"  {len(ayto_records)} aseos oficiales", file=sys.stderr)
-
-    print("Descargando aseos de OSM (solo aseo_comunidad)...", file=sys.stderr)
-    osm_toilet_elements = fetch_osm_toilets()
-    comunidad_records = []
-    for el in osm_toilet_elements:
-        rec = build_aseo_comunidad(el)
-        if rec is None:
-            continue
-        is_duplicate = any(
-            haversine(rec["lat"], rec["lon"], a_lat, a_lon) <= MATCH_THRESHOLD_M
-            for a_lat, a_lon in ayto_coords
-        )
-        if not is_duplicate:
-            comunidad_records.append(rec)
-    print(f"  {len(osm_toilet_elements)} en OSM -> {len(comunidad_records)} no duplicados con el oficial", file=sys.stderr)
 
     print("Descargando censo de locales (bar/fastfood/centro comercial)...", file=sys.stderr)
     bar_fastfood_records, centro_comercial_records, estimaciones = fetch_censo_locales_hosteleria()
@@ -665,18 +563,16 @@ def main():
             "verificado": None,
         })
 
-    all_records = ayto_records + comunidad_records + bar_fastfood_records + centro_comercial_records + estacion_records
+    all_records = ayto_records + bar_fastfood_records + centro_comercial_records + estacion_records
 
     output = {
         "generado": datetime.now(timezone.utc).isoformat(),
         "fuentes": {
             "ayuntamiento_aseos": "https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos (CC BY 4.0)",
             "ayuntamiento_censo": "https://datos.madrid.es/dataset/200085-0-censo-locales (CC BY 4.0)",
-            "osm": "https://www.openstreetmap.org/copyright (ODbL) via Overpass API",
         },
         "conteos": {
             "aseo_oficial": len(ayto_records),
-            "aseo_comunidad": len(comunidad_records),
             "bar": n_bar,
             "cafeteria": n_cafeteria,
             "fastfood": n_fastfood,
