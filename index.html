@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#1f7fe0">
   <title>Me cago en Madrid · Localizador de aseos y servicios</title>
   <meta name="description" content="Encuentra el aseo público más cercano en Madrid, y bares, fastfood o centros comerciales como alternativa.">
-  <link rel="icon" href="icon-192.png?v=3" type="image/png">
-  <link rel="apple-touch-icon" href="icon-192.png?v=3">
+  <link rel="icon" href="icon-192.png?v=4" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png?v=4">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.24">
+  <link rel="stylesheet" href="styles.css?v=1.0.25">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -32,7 +32,7 @@
   <!-- ============ FUERA DE MADRID ============ -->
   <div id="outsideModal">
     <div class="sad-bear-wrap">
-      <img class="logo" src="icon-192.png?v=3" alt="">
+      <img class="logo" src="icon-192.png?v=4" alt="">
       <span class="tear">🚻</span>
     </div>
     <h1 data-i18n="outside_title">¡Ups!</h1>
@@ -43,13 +43,13 @@
 
   <!-- ============ LOADING (arranque silencioso) ============ -->
   <section id="loading">
-    <img class="logo" src="icon-192.png?v=3" alt="">
+    <img class="logo" src="icon-192.png?v=4" alt="">
     <div class="load-row"><span class="spin"></span><span data-i18n="loading_text">Cargando aseos…</span></div>
   </section>
 
   <!-- ============ SPLASH (solo si falta permiso) ============ -->
   <section id="splash">
-    <img class="logo" src="icon-192.png?v=3" alt="Icono de la app">
+    <img class="logo" src="icon-192.png?v=4" alt="Icono de la app">
     <h1 data-i18n="app_full">Me cago en Madrid</h1>
     <p class="tag" data-i18n="splash_tag">¿Dónde están los aseos más cercanos?</p>
     <p class="desc" data-i18n="splash_desc">
@@ -65,13 +65,13 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.24</p>
+    <p class="version" id="appVersion">v1.0.25</p>
   </section>
 
   <!-- ============ APP ============ -->
   <div id="app">
     <header class="bar">
-      <img src="icon-192.png?v=3" alt="">
+      <img src="icon-mono-96.png?v=1" alt="">
       <button class="t" id="aboutBtn" title="Acerca de" data-i18n="app_short">Me cago</button>
       <button class="count" id="count" title="Servicios" aria-label="Servicios">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
@@ -111,7 +111,7 @@
     </div>
 
     <div id="emptyState" style="display:none">
-      <img class="logo" src="icon-192.png?v=3" alt="">
+      <img class="logo" src="icon-192.png?v=4" alt="">
       <h2 data-i18n="empty_h">Nada por aquí</h2>
       <p data-i18n="empty_text">Ningún resultado con estos filtros. Prueba a quitar alguno.</p>
       <button class="btn" id="emptyClearBtn"><span data-i18n="empty_clear">Quitar filtros</span></button>
@@ -296,7 +296,7 @@
   <!-- ============ ABOUT ============ -->
   <div id="about">
     <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
-    <img class="logo" src="icon-192.png?v=3" alt="">
+    <img class="logo" src="icon-192.png?v=4" alt="">
     <h1 data-i18n="app_full">Me cago en Madrid</h1>
     <p class="tag" data-i18n="splash_tag">¿Dónde están los aseos más cercanos?</p>
     <p class="desc" data-i18n="about_desc">
@@ -306,7 +306,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.24</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.25</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -478,7 +478,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.24"></script>
-  <script src="app.js?v=1.0.24"></script>
+  <script src="themes.js?v=1.0.25"></script>
+  <script src="app.js?v=1.0.25"></script>
 </body>
 </html>

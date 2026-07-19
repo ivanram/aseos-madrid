@@ -72,7 +72,8 @@ header.bar{
   padding:11px 16px;background:var(--card);
   border-bottom:1px solid var(--line);z-index:10;
 }
-header.bar img{width:30px;height:30px;border-radius:9px}
+/* silueta blanca sobre transparente (icon-mono-96): sin caja ni esquinas */
+header.bar img{width:34px;height:34px}
 header.bar .t{font-weight:700;font-size:1.02rem;letter-spacing:-.01em}
 header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
   background:var(--bg);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
