@@ -240,6 +240,16 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 /* Resalte momentáneo al pasar el barrido del radar por encima (ver
    updateRadarSweepHighlight): más intenso y breve que el anterior. */
 .radar-blip.swept{ stroke:#fff;stroke-width:2.4px;filter:drop-shadow(0 0 9px rgba(255,255,255,.95)); }
+/* El recomendado del botón de emergencia: más grande, rojo, con un pulso
+   constante — tiene que verse por encima de todo lo demás del radar. */
+.radar-blip.radar-emergency{
+  stroke:#fff;stroke-width:2px;
+  animation:radarEmergencyPulse 1.4s ease-in-out infinite;
+}
+@keyframes radarEmergencyPulse{
+  0%,100%{ filter:drop-shadow(0 0 6px rgba(217,80,63,.9)); }
+  50%{ filter:drop-shadow(0 0 14px rgba(217,80,63,1)); }
+}
 /* En el radar la X va a la derecha y el zoom a la izquierda (al revés que en
    AR, que comparte la clase .ar-close): es el orden más habitual. */
 #radar .ar-close{ background:rgba(0,0,0,.4);left:auto;right:14px; }
@@ -527,9 +537,11 @@ header.bar .t:active{opacity:.6}
 
 /* ---------- Botón de emergencia + panel de urgencia ----------
    Centrado abajo, encima de todo lo demás del mapa (incluida la pila de
-   .mapctl): es el CTA principal de la app, tiene que verse siempre. */
+   .mapctl): es el CTA principal de la app, tiene que verse siempre. Los
+   controles de zoom de Leaflet (.leaflet-bottom.leaflet-left) usan z-index
+   1000 por defecto, así que hace falta superarlo o quedan por delante. */
 .emergency-btn{
-  position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:620;
+  position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:1100;
   width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;
   background:#d9503f;box-shadow:0 8px 22px rgba(217,80,63,.5);
   display:flex;align-items:center;justify-content:center;
@@ -538,7 +550,7 @@ header.bar .t:active{opacity:.6}
 .emergency-btn:active{transform:translateX(-50%) scale(.94)}
 .emergency-btn svg{width:30px;height:30px;fill:#fff}
 .emergency-panel{
-  position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:620;
+  position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:1100;
   width:min(90vw,340px);padding:16px 18px 18px;
   background:var(--card);border-radius:20px;box-shadow:var(--shadow);
   text-align:center;
@@ -562,6 +574,7 @@ header.bar .t:active{opacity:.6}
 
 /* ---------- Recomendación del botón de emergencia (dentro de la ficha) ---------- */
 .sheet-recommend{
+  display:flex;flex-direction:column;
   background:#fdeceA;border:1px solid #f3c4bc;border-radius:14px;
   padding:12px 14px;margin:2px 0 14px;
 }

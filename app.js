@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.22';
+const APP_VERSION = '1.0.23';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -25,6 +25,7 @@ const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = 
 const HEADING_JUMP = 100;        // grados: cambio brusco = ruido del sensor → lo amortiguamos
 const TRAIL_MIN_DIST = 14;       // m entre puntos de la estela: separados, como un rastro de peli, no un churro
 const MAP_HEADING_SMOOTH = 0.045; // suavizado del modo brújula del mapa: prioriza calma sobre precisión
+const RADAR_HEADING_SMOOTH = 0.05; // el radar gira un grupo grande: con el suavizado de AR (0.16) temblaba mucho
 const MAP_BEARING_THROTTLE = 200; // ms mínimos entre giros del mapa en modo brújula (evita trabajo de más)
 const OUTSIDE_MADRID_KM = 20;     // si lo más cercano está más lejos que esto, probablemente no estás en Madrid
 const MADRID_SOL = { lat: 40.4168, lon: -3.7038 };
@@ -358,6 +359,11 @@ let headingConeEl = null;
 let arHeading = null;
 let arPitch = null;
 let arArrivedVibrated = false;
+/* Radar: suavizado propio (más calmado que el de AR, ver RADAR_HEADING_SMOOTH)
+   — girar un grupo grande de 320px con el mismo suavizado "rápido" de AR se
+   notaba tembloroso, porque cualquier ruido del sensor se amplifica mucho
+   en los bordes al girar algo tan grande. */
+let radarHeading = null;
 
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -1663,7 +1669,12 @@ function closeSheet() {
 }
 
 function handleMarkerClick(p) {
-  if (selected === p) { closeSheet(); setTarget(null); }
+  // ojo: si solo miráramos "selected === p" para decidir cerrar en vez de
+  // abrir, un lugar que sigue siendo el objetivo pero cuya ficha ya se
+  // cerró a mano (deslizando, o tocando el mapa) no se podría volver a
+  // abrir tocándolo otra vez — el toque se interpretaría como "cerrar" algo
+  // que ya estaba cerrado, en vez de reabrirlo.
+  if (selected === p && $('sheet').classList.contains('open')) { closeSheet(); setTarget(null); }
   else openSheet(p);
 }
 
@@ -1786,6 +1797,7 @@ function onOrient(e) {
       if (delta > HEADING_JUMP) alpha = HEADING_SMOOTH * 0.2;
     }
     arHeading = smoothAngle(arHeading, raw, alpha);
+    if (radarOpen) radarHeading = smoothAngle(radarHeading, raw, RADAR_HEADING_SMOOTH);
 
     if (mapMode === 'compass') {
       mapHeading = smoothAngle(mapHeading, raw, MAP_HEADING_SMOOTH);
@@ -1947,6 +1959,17 @@ function renderRadarBlips() {
   radarBlipEls = new Map();
   const rangeM = radarRangeMin() * 80;
   const candidates = radarCandidates(rangeM);
+  // el recomendado del botón de emergencia se ve siempre en el radar aunque
+  // su confianza no llegue al 100% que exige radarCandidates() para el
+  // resto: ya pasó su propio criterio (ver alertReliability) y el usuario
+  // necesita verlo como referencia mientras decide.
+  if (emergencyRecommended && userPos && !candidates.includes(emergencyRecommended)) {
+    const d = haversine(userPos.lat, userPos.lon, emergencyRecommended.lat, emergencyRecommended.lon);
+    if (d <= rangeM) {
+      emergencyRecommended.dist = d;  // puede no estar en `places` (filtros) y tener .dist obsoleto o sin calcular
+      candidates.push(emergencyRecommended);
+    }
+  }
   radarCurrentCandidates = candidates;
   const emptyEl = $('radarEmpty');
   if (emptyEl) {
@@ -1957,7 +1980,8 @@ function renderRadarBlips() {
   for (const p of candidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
     const { x, y } = radarPointFor(p.dist, brg);
-    const r = p === selected ? 9 : 6;
+    const isEmergency = p === emergencyRecommended;
+    const r = isEmergency ? 12 : (p === selected ? 9 : 6);
     const fav = isFav(p);
 
     // solo circulitos de color, sin insignia adicional: menos ruido visual
@@ -1965,8 +1989,8 @@ function renderRadarBlips() {
     c.setAttribute('cx', x.toFixed(1));
     c.setAttribute('cy', y.toFixed(1));
     c.setAttribute('r', r);
-    c.setAttribute('fill', fav ? '#00bcd4' : pinColor(p));
-    c.setAttribute('class', 'radar-blip' + (fav ? ' fav' : ''));
+    c.setAttribute('fill', isEmergency ? '#d9503f' : (fav ? '#00bcd4' : pinColor(p)));
+    c.setAttribute('class', 'radar-blip' + (fav ? ' fav' : '') + (isEmergency ? ' radar-emergency' : ''));
     c.dataset.id = p.id;
     const title = document.createElementNS(ns, 'title');
     title.textContent = p.nombre || tipoLabel(p.tipo);
@@ -1993,7 +2017,7 @@ function applyRadarHighlight(cls, activeId) {
 function updateRadarAheadLabel() {
   const el = $('radarAhead'); if (!el) return;
   if (!userPos || !radarCurrentCandidates.length) { el.style.display = 'none'; applyRadarHighlight('ahead', null); return; }
-  const heading = arHeading == null ? 0 : arHeading;
+  const heading = radarHeading == null ? 0 : radarHeading;
   let best = null, bestDiff = Infinity;
   for (const p of radarCurrentCandidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
@@ -2018,7 +2042,7 @@ let radarSweepStartTs = null;
 function updateRadarSweepHighlight(sweepAngle) {
   const captionEl = $('radarCaption');
   if (!userPos) { applyRadarHighlight('swept', null); if (captionEl) { captionEl.classList.remove('active'); captionEl.textContent = t('radar_caption'); } return; }
-  const heading = arHeading == null ? 0 : arHeading;
+  const heading = radarHeading == null ? 0 : radarHeading;
   let hit = null;
   for (const p of radarCurrentCandidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
@@ -2045,7 +2069,7 @@ function radarSweepTick(ts) {
 }
 function updateRadarRotation() {
   const g = $('radarBlipsGroup'); if (!g) return;
-  const heading = arHeading == null ? 0 : arHeading;
+  const heading = radarHeading == null ? 0 : radarHeading;
   g.setAttribute('transform', `rotate(${-heading})`);
   updateRadarAheadLabel();
 }
@@ -2059,6 +2083,7 @@ function openRadarMode() {
   radarOpen = true;
   $('radar').style.display = 'flex';
   arHeading = null;
+  radarHeading = null;
   acquireCompass();
   syncRadarZoomButtons();
   updateRadarRings();
