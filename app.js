@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.25';
+const APP_VERSION = '1.0.26';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -45,6 +45,9 @@ const TIPO_EMOJI = {
    distinguirlas de un vistazo como "candidatas", no "aseo confirmado". */
 const TIPO_COLOR_FIJO = { bar: '#F2A007', cafeteria: '#8B5A32', fastfood: '#E94378', centro_comercial: '#12b886', estacion: '#7048e8' };
 const PAGO_LABEL = { gratis: 'Gratis', pago: 'De pago', consumicion: 'Con consumición', desconocido: 'Pago desconocido' };
+const TIPO_LABEL_PLURAL = {
+  bar: 'bares', cafeteria: 'cafeterías', fastfood: 'locales de comida rápida', centro_comercial: 'centros comerciales'
+};
 const EMERGENCY_TIPOS = new Set(['bar', 'cafeteria', 'fastfood', 'centro_comercial']);
 function tipoLabel(t) { return TIPO_LABEL[t] || t; }
 
@@ -754,6 +757,27 @@ function alertNeedlePercent(score) {
   if (score == null) return 100;
   return Math.max(0, Math.min(100, 100 - score));
 }
+/* Cuando el candidato mejor puntuado no es un aseo oficial/estación (fiabilidad
+   certera) ni un horario real confirmado, no merece la pena señalar un único
+   sitio como si fuera seguro: si hay más candidatos del mismo tipo cerca, es
+   más honesto decir "varios bares cerca" (alguno estará abierto) que apuntar
+   a uno concreto que igual está cerrado. */
+function alertDetailText(cand) {
+  const p = cand.place;
+  const conf = openConfidence(p);
+  const isCertain = !EMERGENCY_TIPOS.has(p.tipo) || (conf && conf.tier === 100);
+  if (!isCertain) {
+    const nearby = rankAlertCandidates(places).filter(c => EMERGENCY_TIPOS.has(c.place.tipo) && c.min <= cand.min + 5);
+    if (nearby.length >= 2) {
+      const types = new Set(nearby.map(c => c.place.tipo));
+      const typesLabel = types.size === 1 ? (TIPO_LABEL_PLURAL[[...types][0]] || 'establecimientos') : 'establecimientos';
+      return t('urgency_detail_multi').replace('{types}', typesLabel).replace('{min}', cand.min);
+    }
+  }
+  const pagoSuffix = (p.pago === 'pago' || p.pago === 'consumicion')
+    ? ` (${PAGO_LABEL[p.pago].toLowerCase()})` : '';
+  return t('urgency_detail').replace('{place}', tipoLabel(p.tipo) + pagoSuffix).replace('{min}', cand.min);
+}
 function updateUrgencyPanel() {
   const panel = $('urgencyPanel');
   if (!panel || !userPos || !allPlaces.length) return;
@@ -764,11 +788,7 @@ function updateUrgencyPanel() {
   $('urgencyIcon').textContent = level.icon;
   $('urgencyLabel').textContent = t(level.labelKey);
   if (cand) {
-    const pagoSuffix = (cand.place.pago === 'pago' || cand.place.pago === 'consumicion')
-      ? ` (${PAGO_LABEL[cand.place.pago].toLowerCase()})` : '';
-    $('urgencyDetail').textContent = t('urgency_detail')
-      .replace('{place}', tipoLabel(cand.place.tipo) + pagoSuffix)
-      .replace('{min}', cand.min);
+    $('urgencyDetail').textContent = alertDetailText(cand);
   } else {
     $('urgencyDetail').textContent = t('urgency_nodata');
   }
@@ -800,7 +820,7 @@ function updateUrgencyPanel() {
    lejano). Respeta los filtros activos (usa `places`, no `allPlaces`: si el
    usuario ha desactivado una categoría, no se le recomienda). */
 const EMERGENCY_URGENCY_PROFILES = [
-  null,                                    // 0: falsa alarma, no se usa
+  { wRel: 0.9, wClose: 0.1, zeroAt: 45 },   // 0: no pasa nada — aún tengo mucho aguante, prioriza casi solo la fiabilidad
   { wRel: 0.75, wClose: 0.25, zeroAt: 30 }, // 1: leve — puedo permitirme ir a lo seguro aunque esté algo más lejos
   { wRel: 0.55, wClose: 0.45, zeroAt: 18 }, // 2: moderada — equilibrio, algo más cerca que el nivel de alerta general
   { wRel: 0.35, wClose: 0.65, zeroAt: 8 },  // 3: extrema — lo más cercano que sea mínimamente viable
@@ -847,6 +867,7 @@ function closeEmergencyPanel() {
   $('emergencyPanel').style.display = 'none';
   $('emergencyBtn').style.display = 'flex';
 }
+const EMERGENCY_SLIDER_EMOJI = ['😏', '😐', '😫', '😭'];
 function openEmergencyPanel() {
   closeAllOverlays();
   $('emergencyBtn').style.display = 'none';
@@ -855,8 +876,16 @@ function openEmergencyPanel() {
   updateEmergencyLevelLabel();
 }
 function updateEmergencyLevelLabel() {
-  const level = +$('emergencySlider').value;
+  const slider = $('emergencySlider');
+  const level = +slider.value;
   $('emergencyLevelLabel').textContent = t('emergency_level_' + level);
+  const thumb = $('emergencySliderThumb');
+  if (thumb) {
+    thumb.textContent = EMERGENCY_SLIDER_EMOJI[level];
+    const min = +slider.min, max = +slider.max, w = slider.clientWidth, thumbW = 28;
+    const pct = (level - min) / (max - min);
+    thumb.style.left = (pct * (w - thumbW) + thumbW / 2) + 'px';
+  }
 }
 $('emergencyBtn').addEventListener('click', openEmergencyPanel);
 $('emergencyPanelClose').addEventListener('click', closeEmergencyPanel);
@@ -864,7 +893,6 @@ $('emergencySlider').addEventListener('input', updateEmergencyLevelLabel);
 $('emergencyGoBtn').addEventListener('click', () => {
   const level = +$('emergencySlider').value;
   closeEmergencyPanel();
-  if (level === 0) { toast(t('emergency_false_alarm')); return; }
   if (!userPos) return;
   emergencyRanked = rankForUrgency(level);
   emergencyIndex = 0;
@@ -947,6 +975,7 @@ if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
   filters.favOnly = false; filters.emergency = false;
   filters.emergencyCats = { bar: true, cafeteria: true, fastfood: true, centro_comercial: true };
   saveFilters(); applyFilters(); rebuildMarkers(); fitInitialView(); updateFiltersBadge();
+  updateUrgencyPanel();
 });
 /* Los filtros del popup se editan sobre un borrador: nada se aplica al mapa
    hasta pulsar "Aceptar", así cerrar con la X (o tocar fuera) cancela sin
@@ -989,6 +1018,7 @@ function applyFiltersState(state) {
   filters.minConfidence = state.minConfidence;
   saveFilters();
   applyFilters(); rebuildMarkers(); renderListItems(); updateFiltersBadge();
+  updateUrgencyPanel();
   if (radarOpen) refreshRadar();
 }
 function updateEmergencyCatsUI() {
@@ -1202,8 +1232,8 @@ function userIcon() {
    ============================================================ */
 const PIN_PATH = 'M128 12c-59.6 0-108 48.4-108 108 0 81 108 128 108 128s108-47 108-128C236 60.4 187.6 12 128 12Z';
 const PIN_FIGURES =
-  '<g fill="#fff" transform="translate(-2 -16)"><circle cx="96" cy="83" r="13"/><path d="M76 105a12 12 0 0 1 12-12h16a12 12 0 0 1 12 12v48a8 8 0 0 1-8 8h-2v39a9 9 0 0 1-18 0v-39h-4a8 8 0 0 1-8-8Z"/></g>' +
-  '<g fill="#fff" transform="translate(18 -16)"><circle cx="144" cy="83" r="13"/><path d="M136 93h16c7 0 11 5 13 12l15 48c2 6-2 11-8 11h-7v36a9 9 0 0 1-18 0v-36h-6v36a9 9 0 0 1-18 0v-36h-7c-6 0-10-5-8-11l15-48c2-7 6-12 13-12Z"/></g>';
+  '<g fill="#fff" transform="translate(111 78)"><circle r="10"/><rect x="-9" y="12" width="18" height="28" rx="7"/><rect x="-8" y="38" width="7" height="26" rx="3"/><rect x="1" y="38" width="7" height="26" rx="3"/></g>' +
+  '<g fill="#fff" transform="translate(145 78)"><circle r="10"/><path d="M-7 12 L-15 42 Q-15 46 -11 46 L11 46 Q15 46 15 42 L7 12 Z"/><rect x="-8" y="46" width="7" height="18" rx="3"/><rect x="1" y="46" width="7" height="18" rx="3"/></g>';
 const PIN_HEART = '<path fill="#fff" d="M198 214c-5-5-22-16-22-29 0-15 18-20 22-8 4-12 22-7 22 8 0 13-17 24-22 29Z"/>';
 const PIN_BADGE_UNCONFIRMED = '<path fill="none" stroke="#fff" stroke-linecap="round" stroke-width="10" d="M187 178c1-11 23-13 23 2 0 10-12 10-12 20"/><circle cx="198" cy="214" r="5" fill="#fff"/>';
 const PIN_BADGE = {

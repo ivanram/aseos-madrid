@@ -6,9 +6,9 @@ const CACHE = 'aseos-madrid-v25';
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=1.0.25',
-  './themes.js?v=1.0.25',
-  './app.js?v=1.0.25',
+  './styles.css?v=1.0.26',
+  './themes.js?v=1.0.26',
+  './app.js?v=1.0.26',
   './data/aseos.json',
   './languages/manifest.json',
   './languages/es.json',
