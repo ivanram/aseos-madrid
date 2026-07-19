@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} min walk",
     "urgency_nodata": "No reliable data nearby",
     "radar_empty": "Nothing on radar (more than {min} min walk)",
-    "radar_caption": "Scanning…"
+    "radar_caption": "Scanning…",
+    "emergency_btn_title": "I really need to go",
+    "emergency_title": "How urgently do you need to go?",
+    "emergency_level_0": "False alarm",
+    "emergency_level_1": "I can hold it a while",
+    "emergency_level_2": "I need to go soon",
+    "emergency_level_3": "It's a matter of seconds!",
+    "emergency_go": "Find a toilet",
+    "emergency_false_alarm": "Phew 😅",
+    "emergency_no_more": "No more nearby recommendations",
+    "recommend_text": "We recommend this toilet for you",
+    "recommend_dislike": "I don't like it, show another",
+    "recommend_ok": "Got it"
   }
 }

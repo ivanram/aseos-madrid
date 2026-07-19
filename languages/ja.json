@@ -58,6 +58,18 @@
     "urgency_detail": "{place}・徒歩{min}分",
     "urgency_nodata": "近くに信頼できるデータがありません",
     "radar_empty": "レーダー範囲内になし（徒歩{min}分以上）",
-    "radar_caption": "検索中…"
+    "radar_caption": "検索中…",
+    "emergency_btn_title": "本当にヤバい",
+    "emergency_title": "どのくらいヤバい？",
+    "emergency_level_0": "誤報",
+    "emergency_level_1": "少しなら我慢できる",
+    "emergency_level_2": "そろそろ限界",
+    "emergency_level_3": "秒読み段階！",
+    "emergency_go": "トイレを探す",
+    "emergency_false_alarm": "よかった 😅",
+    "emergency_no_more": "近くに他の候補がありません",
+    "recommend_text": "このトイレがおすすめです",
+    "recommend_dislike": "気に入らない、他を探す",
+    "recommend_ok": "了解"
   }
 }

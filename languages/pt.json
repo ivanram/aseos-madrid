@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} min a pé",
     "urgency_nodata": "Sem dados confiáveis por perto",
     "radar_empty": "Nada no radar (mais de {min} min a pé)",
-    "radar_caption": "Buscando…"
+    "radar_caption": "Buscando…",
+    "emergency_btn_title": "Preciso muito ir",
+    "emergency_title": "Quão urgente é?",
+    "emergency_level_0": "Alarme falso",
+    "emergency_level_1": "Consigo aguentar um pouco",
+    "emergency_level_2": "Preciso ir logo",
+    "emergency_level_3": "É questão de segundos!",
+    "emergency_go": "Buscar banheiro",
+    "emergency_false_alarm": "Ainda bem 😅",
+    "emergency_no_more": "Sem mais recomendações por perto",
+    "recommend_text": "Recomendamos este banheiro para você",
+    "recommend_dislike": "Não gostei, quero outro",
+    "recommend_ok": "Entendi"
   }
 }

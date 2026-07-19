@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} min à pied",
     "urgency_nodata": "Aucune donnée fiable à proximité",
     "radar_empty": "Rien sur le radar (plus de {min} min à pied)",
-    "radar_caption": "Recherche en cours…"
+    "radar_caption": "Recherche en cours…",
+    "emergency_btn_title": "J'ai vraiment besoin d'y aller",
+    "emergency_title": "À quel point tu dois y aller ?",
+    "emergency_level_0": "Fausse alerte",
+    "emergency_level_1": "Je peux tenir un peu",
+    "emergency_level_2": "Je dois y aller bientôt",
+    "emergency_level_3": "C'est une question de secondes !",
+    "emergency_go": "Trouver des toilettes",
+    "emergency_false_alarm": "Ouf 😅",
+    "emergency_no_more": "Plus de suggestions à proximité",
+    "recommend_text": "On te recommande ces toilettes",
+    "recommend_dislike": "Je n'aime pas, une autre",
+    "recommend_ok": "Compris"
   }
 }

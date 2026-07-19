@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.20">
+  <link rel="stylesheet" href="styles.css?v=1.0.22">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.20</p>
+    <p class="version" id="appVersion">v1.0.22</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -136,21 +136,44 @@
     <div id="devContextMenu" class="dev-context-menu" style="display:none">
       <button id="devSetLocHere">📍 Fijar mi ubicación aquí</button>
     </div>
+
+    <!-- ============ BOTÓN DE EMERGENCIA ============ -->
+    <button class="emergency-btn" id="emergencyBtn" title="Me estoy cagando" data-i18n-title="emergency_btn_title" aria-label="Necesito un aseo urgentemente">
+      <svg viewBox="90 40 390 940">
+        <path d="M 327.30 797.62 C 324.34 866.89 257.89 983.45 357.51 962.68 C 401.92 953.41 392.24 896.01 393.00 863.01 L 392.91 514.58 C 368.98 526.65 361.81 582.07 339.74 588.22 C 331.59 595.49 309.97 592.33 311.40 615.49 C 314.59 644.16 327.81 684.70 331.59 713.47 C 335.60 743.99 328.92 768.01 327.30 797.62 Z M 191.96 325.16 C 201.90 331.03 200.00 472.93 200.00 495.77 C 200.00 534.67 195.25 577.96 203.90 615.71 C 213.86 659.14 242.16 706.41 238.84 751.79 C 235.29 800.29 181.51 907.53 212.59 947.75 L 225.51 958.20 C 239.69 965.77 259.00 964.97 271.31 954.21 C 302.10 927.31 328.87 759.50 323.52 716.76 C 319.76 686.72 308.24 648.52 298.13 619.57 C 289.45 594.71 255.04 585.41 256.11 556.24 C 256.76 538.31 359.68 331.73 372.17 322.93 L 382.23 326.90 C 362.32 375.76 340.38 420.55 320.11 457.32 C 306.03 482.85 237.61 578.47 302.23 583.94 C 312.24 584.16 326.02 583.19 333.67 575.84 C 361.49 549.11 379.63 493.33 395.96 458.51 C 421.88 403.21 520.78 261.07 406.88 236.24 C 375.73 229.45 183.89 227.30 155.99 235.89 C 136.78 241.81 123.63 254.81 116.44 273.43 C 107.37 296.91 106.43 575.71 115.77 596.81 C 121.77 610.37 135.75 615.33 149.44 614.97 C 220.44 613.07 158.18 335.59 191.96 325.16 Z M 367.16 139.21 C 367.16 183.67 331.12 219.71 286.66 219.71 C 242.21 219.71 206.17 183.67 206.17 139.21 C 206.17 94.76 242.21 58.72 286.66 58.72 C 331.12 58.72 367.16 94.76 367.16 139.21 Z" fill-rule="evenodd"/>
+      </svg>
+    </button>
+    <div class="emergency-panel" id="emergencyPanel" style="display:none">
+      <button class="close" id="emergencyPanelClose" aria-label="Cerrar">×</button>
+      <p class="emergency-title" data-i18n="emergency_title">¿Cuánto te estás cagando?</p>
+      <input type="range" id="emergencySlider" class="emergency-slider" min="0" max="3" step="1" value="0">
+      <p class="emergency-level-label" id="emergencyLevelLabel" data-i18n="emergency_level_0">Falsa alarma</p>
+      <button class="btn emergency-go" id="emergencyGoBtn" data-i18n="emergency_go">Buscar aseo</button>
+    </div>
   </div>
 
   <!-- ============ INFO SHEET ============ -->
   <div id="sheet" role="dialog" aria-modal="true" aria-label="Información del servicio">
     <div class="grip"></div>
-    <div class="sheet-toolbar">
-      <button class="fav" id="favBtn" aria-label="Marcar como favorito" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-      </button>
-      <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
-      </button>
+    <div class="sheet-name-row">
+      <h2 class="name" id="sName">Aseo</h2>
+      <div class="sheet-toolbar">
+        <button class="fav" id="favBtn" aria-label="Marcar como favorito" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+        <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
+        </button>
+      </div>
     </div>
-    <h2 class="name" id="sName">Aseo</h2>
     <p class="addr" id="sAddr"></p>
+    <div class="sheet-recommend" id="sheetRecommend" style="display:none">
+      <p data-i18n="recommend_text">Te recomendamos este aseo para tu caso</p>
+      <div class="sheet-recommend-actions">
+        <button class="btn-secondary" id="recommendDislike" data-i18n="recommend_dislike">No me gusta, quiero otro</button>
+        <button class="btn-secondary" id="recommendOk" data-i18n="recommend_ok">Vale</button>
+      </div>
+    </div>
     <div class="sheet-info">
       <p class="sheet-line" id="sCatLine"></p>
       <p class="sheet-line" id="sDistLine"></p>
@@ -282,7 +305,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.20</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.22</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -414,7 +437,6 @@
       <button id="radarZoomOut" aria-label="Alejar radar">−</button>
     </div>
     <div class="radar-wrap" id="radarWrap">
-      <div id="radarMapBg"></div>
       <div class="radar-ahead" id="radarAhead" style="display:none">
         <span class="radar-ahead-name" id="radarAheadName"></span>
         <span class="radar-ahead-meta" id="radarAheadMeta"></span>
@@ -428,10 +450,10 @@
         </defs>
         <circle r="47" class="radar-ring"/>
         <circle r="93" class="radar-ring"/>
-        <circle r="140" class="radar-ring"/>
-        <text x="50" y="4" class="radar-ring-label">3′</text>
-        <text x="96" y="4" class="radar-ring-label">7′</text>
-        <text x="143" y="4" class="radar-ring-label">10′</text>
+        <circle r="140" class="radar-ring radar-ring-outer"/>
+        <text x="0" y="-47" class="radar-ring-label">4′</text>
+        <text x="0" y="-93" class="radar-ring-label">8′</text>
+        <text x="0" y="-140" class="radar-ring-label">12′</text>
 
         <path id="radarSweep" class="radar-sweep" d="M0,0 L0,-140 A140,140 0 0 1 34,-136 Z"/>
 
@@ -440,8 +462,9 @@
         <g id="radarBlipsGroup"></g>
 
         <g class="radar-me">
-          <circle cx="0" cy="-6.5" r="2.6"/>
-          <path d="M-3 -3 Q0 -4.5 3 -3 L3.3 1.2 Q4.5 2.3 2.8 3.4 L1.6 2.6 Q3.2 6 1.1 8.6 Q0.2 6.3 -0.4 6.3 Q-1.7 8.7 -3.4 6.4 Q-1.2 3.3 -1.7 1.4 L-3.4 2.1 Q-5 0.9 -3.8 -0.6 Z"/>
+          <g transform="translate(-6.61,-12.00) scale(0.02264)">
+            <path fill-rule="evenodd" d="M 327.30 797.62 C 324.34 866.89 257.89 983.45 357.51 962.68 C 401.92 953.41 392.24 896.01 393.00 863.01 L 392.91 514.58 C 368.98 526.65 361.81 582.07 339.74 588.22 C 331.59 595.49 309.97 592.33 311.40 615.49 C 314.59 644.16 327.81 684.70 331.59 713.47 C 335.60 743.99 328.92 768.01 327.30 797.62 Z M 191.96 325.16 C 201.90 331.03 200.00 472.93 200.00 495.77 C 200.00 534.67 195.25 577.96 203.90 615.71 C 213.86 659.14 242.16 706.41 238.84 751.79 C 235.29 800.29 181.51 907.53 212.59 947.75 L 225.51 958.20 C 239.69 965.77 259.00 964.97 271.31 954.21 C 302.10 927.31 328.87 759.50 323.52 716.76 C 319.76 686.72 308.24 648.52 298.13 619.57 C 289.45 594.71 255.04 585.41 256.11 556.24 C 256.76 538.31 359.68 331.73 372.17 322.93 L 382.23 326.90 C 362.32 375.76 340.38 420.55 320.11 457.32 C 306.03 482.85 237.61 578.47 302.23 583.94 C 312.24 584.16 326.02 583.19 333.67 575.84 C 361.49 549.11 379.63 493.33 395.96 458.51 C 421.88 403.21 520.78 261.07 406.88 236.24 C 375.73 229.45 183.89 227.30 155.99 235.89 C 136.78 241.81 123.63 254.81 116.44 273.43 C 107.37 296.91 106.43 575.71 115.77 596.81 C 121.77 610.37 135.75 615.33 149.44 614.97 C 220.44 613.07 158.18 335.59 191.96 325.16 Z M 367.16 139.21 C 367.16 183.67 331.12 219.71 286.66 219.71 C 242.21 219.71 206.17 183.67 206.17 139.21 C 206.17 94.76 242.21 58.72 286.66 58.72 C 331.12 58.72 367.16 94.76 367.16 139.21 Z"/>
+          </g>
         </g>
       </svg>
     </div>
@@ -454,7 +477,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.20"></script>
-  <script src="app.js?v=1.0.20"></script>
+  <script src="themes.js?v=1.0.22"></script>
+  <script src="app.js?v=1.0.22"></script>
 </body>
 </html>

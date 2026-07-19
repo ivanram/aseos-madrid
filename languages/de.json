@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} Min. zu Fuß",
     "urgency_nodata": "Keine verlässlichen Daten in der Nähe",
     "radar_empty": "Nichts im Radar (mehr als {min} Min. zu Fuß)",
-    "radar_caption": "Suche läuft…"
+    "radar_caption": "Suche läuft…",
+    "emergency_btn_title": "Ich muss dringend",
+    "emergency_title": "Wie dringend musst du?",
+    "emergency_level_0": "Falscher Alarm",
+    "emergency_level_1": "Ich kann noch etwas warten",
+    "emergency_level_2": "Ich muss bald los",
+    "emergency_level_3": "Es ist eine Frage von Sekunden!",
+    "emergency_go": "Toilette finden",
+    "emergency_false_alarm": "Glück gehabt 😅",
+    "emergency_no_more": "Keine weiteren Empfehlungen in der Nähe",
+    "recommend_text": "Wir empfehlen dir diese Toilette",
+    "recommend_dislike": "Gefällt mir nicht, eine andere",
+    "recommend_ok": "Verstanden"
   }
 }

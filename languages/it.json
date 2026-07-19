@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} min a piedi",
     "urgency_nodata": "Nessun dato affidabile nelle vicinanze",
     "radar_empty": "Niente sul radar (più di {min} min a piedi)",
-    "radar_caption": "Ricerca in corso…"
+    "radar_caption": "Ricerca in corso…",
+    "emergency_btn_title": "Mi scappa davvero",
+    "emergency_title": "Quanto ti scappa?",
+    "emergency_level_0": "Falso allarme",
+    "emergency_level_1": "Posso resistere un po'",
+    "emergency_level_2": "Devo andare presto",
+    "emergency_level_3": "È questione di secondi!",
+    "emergency_go": "Trova un bagno",
+    "emergency_false_alarm": "Meno male 😅",
+    "emergency_no_more": "Nessun'altra proposta nelle vicinanze",
+    "recommend_text": "Ti consigliamo questo bagno",
+    "recommend_dislike": "Non mi piace, un altro",
+    "recommend_ok": "Va bene"
   }
 }

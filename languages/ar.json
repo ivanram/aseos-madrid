@@ -58,6 +58,18 @@
     "urgency_detail": "{place}، {min} دقيقة مشيًا",
     "urgency_nodata": "لا توجد بيانات موثوقة قريبة",
     "radar_empty": "لا يوجد شيء على الرادار (أكثر من {min} دقيقة مشيًا)",
-    "radar_caption": "جارٍ البحث…"
+    "radar_caption": "جارٍ البحث…",
+    "emergency_btn_title": "أحتاج الذهاب بشدة",
+    "emergency_title": "ما مدى إلحاح حاجتك؟",
+    "emergency_level_0": "إنذار كاذب",
+    "emergency_level_1": "أستطيع الانتظار قليلاً",
+    "emergency_level_2": "يجب أن أذهب قريبًا",
+    "emergency_level_3": "الأمر مسألة ثوانٍ!",
+    "emergency_go": "ابحث عن دورة مياه",
+    "emergency_false_alarm": "الحمد لله 😅",
+    "emergency_no_more": "لا توجد اقتراحات أخرى قريبة",
+    "recommend_text": "ننصحك بدورة المياه هذه",
+    "recommend_dislike": "لا يعجبني، أعطني غيرها",
+    "recommend_ok": "حسنًا"
   }
 }

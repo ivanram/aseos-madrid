@@ -58,6 +58,18 @@
     "urgency_detail": "{place} a {min} min andando",
     "urgency_nodata": "Sin datos fiables cerca",
     "radar_empty": "Nada en el radar (más de {min} min andando)",
-    "radar_caption": "Buscando…"
+    "radar_caption": "Buscando…",
+    "emergency_btn_title": "Me estoy cagando",
+    "emergency_title": "¿Cuánto te estás cagando?",
+    "emergency_level_0": "Falsa alarma",
+    "emergency_level_1": "Puedo aguantar un poco",
+    "emergency_level_2": "Tengo que ir pronto",
+    "emergency_level_3": "¡Es cuestión de segundos!",
+    "emergency_go": "Buscar aseo",
+    "emergency_false_alarm": "Menos mal 😅",
+    "emergency_no_more": "No hay más recomendaciones cerca",
+    "recommend_text": "Te recomendamos este aseo para tu caso",
+    "recommend_dislike": "No me gusta, quiero otro",
+    "recommend_ok": "Vale"
   }
 }

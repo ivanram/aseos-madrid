@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.20';
+const APP_VERSION = '1.0.22';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -47,21 +47,18 @@ const PAGO_LABEL = { gratis: 'Gratis', pago: 'De pago', consumicion: 'Con consum
 const EMERGENCY_TIPOS = new Set(['bar', 'cafeteria', 'fastfood', 'centro_comercial']);
 function tipoLabel(t) { return TIPO_LABEL[t] || t; }
 
-/* ---------- Panel de urgencia: minutos al aseo gratis más cercano ----------
-   Escala pedida explícitamente: <5 min tranquilo, <=10 ojo, <=20 precaución,
-   más de eso, alerta roja (el hueco entre "20" y "los 30 min" que se
-   mencionó como ejemplo lo resolvemos metiendo el corte en 20: a partir de
-   ahí ya es la categoría más grave, "30" queda como caso extremo dentro de
-   esa misma categoría, no como un quinto nivel). */
+/* ---------- Panel de urgencia: nivel de alerta 0-100 ----------
+   La puntuación del mejor candidato (ver alertScoreFor más abajo) se
+   traduce a uno de 4 niveles. */
 const URGENCY_LEVELS = [
-  { key: 'ok', max: 5, icon: '🟢', labelKey: 'urgency_ok' },
-  { key: 'warn', max: 10, icon: '🟡', labelKey: 'urgency_warn' },
-  { key: 'caution', max: 20, icon: '🟠', labelKey: 'urgency_caution' },
-  { key: 'danger', max: Infinity, icon: '🔴', labelKey: 'urgency_danger' },
+  { key: 'ok', minScore: 75, icon: '🟢', labelKey: 'urgency_ok' },
+  { key: 'warn', minScore: 55, icon: '🟡', labelKey: 'urgency_warn' },
+  { key: 'caution', minScore: 35, icon: '🟠', labelKey: 'urgency_caution' },
+  { key: 'danger', minScore: -Infinity, icon: '🔴', labelKey: 'urgency_danger' },
 ];
-function urgencyLevelFor(min) {
-  if (min == null) return URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
-  return URGENCY_LEVELS.find(l => min <= l.max) || URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
+function urgencyLevelFor(score) {
+  if (score == null) return URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
+  return URGENCY_LEVELS.find(l => score >= l.minScore) || URGENCY_LEVELS[URGENCY_LEVELS.length - 1];
 }
 
 /* ---------- State ---------- */
@@ -73,6 +70,7 @@ let places = [];          // tras aplicar filtros, ordenado por cercanía
 let userPos = null;
 let geoWatchId = null;
 let selected = null;
+let emergencyRecommended = null;  // lugar recomendado actual del botón de emergencia (ver bloque "BOTÓN DE EMERGENCIA")
 let dataUpdated = Date.now();
 const filters = {
   favOnly: false, emergency: false,
@@ -636,66 +634,115 @@ function checkOutsideMadrid() {
   if (nearestDistanceKm(userPos.lat, userPos.lon) > OUTSIDE_MADRID_KM) $('outsideModal').style.display = 'flex';
 }
 
-/* ---------- Nivel de alerta: distancia + probabilidad de apertura ----------
-   Antes el aviso solo miraba la distancia al aseo GRATIS más cercano, sin
-   tener en cuenta si de verdad estaba abierto ahora mismo — podía decir "todo
-   controlado" señalando un sitio a 3 min que en realidad llevaba horas
-   cerrado. Ahora cada candidato aporta una distancia "ajustada": los que no
-   tienen sistema de confianza (aseo oficial/estación, ver openConfidence) o
-   tienen confianza total (tier 100) cuentan tal cual; cuanto menos fiable el
-   horario, más lejos se considera que está aunque en línea recta esté cerca.
-   Los que sabemos con certeza que están cerrados (tier 0) no cuentan, y
-   tampoco los "poco probable que estén abiertos" (tier 10): puede haber
-   muchos bares cerca, pero si lo más probable es que estén cerrados no
-   sirven para tranquilizar a nadie. No distinguimos gratis/de pago para
-   esto: si lo más fiable y cercano es un bar de pago, sigue resolviendo la
-   urgencia.
+/* ---------- Nivel de alerta: puntuación 0-100 ----------
+   Primera versión: solo miraba la distancia al aseo GRATIS más cercano, sin
+   comprobar si de verdad estaba abierto. Segunda versión: distancia
+   "ajustada" por un multiplicador según el tier de confianza. Ninguna de
+   las dos reflejaba bien la realidad — casi siempre salía "todo controlado".
 
-     confianza                                    multiplicador de distancia
-     sin sistema de confianza (oficial/estación) o tier 100             ×1
-     tier 50  (estimado, hora normal)                                  ×1.5
-     tier 25  (hora rara: estimado, u horario real fuera de horas normales) ×2.5
-     tier 10  (poco probable que esté abierto)                         excluido
-     tier 0   (cerrado ahora, con certeza)                             excluido
+   Esta versión combina dos factores en una puntuación 0-100 por candidato:
+     - FIABILIDAD (¿de verdad está abierto AHORA MISMO?) — factor principal.
+     - CERCANÍA (cuánto se tarda en llegar andando).
+   Filosofía: si te estás cagando, ir a un sitio cercano pero que igual está
+   cerrado te puede costar más tiempo que ir directo a uno un poco más lejos
+   pero fiable — por eso la fiabilidad pesa más que la distancia en la nota
+   final (65/35), y por eso NO todos los "extraoficiales" cuentan igual:
 
-   La distancia ajustada del mejor candidato se traduce a minutos andando y
-   usa los mismos cortes de siempre (≤5 verde, ≤10 amarillo, ≤20 naranja, el
-   resto rojo). Recorre TODO allPlaces (no el `places` filtrado): el aviso
-   debe reflejar la realidad aunque el usuario tenga desactivados los
-   servicios de emergencia en los filtros. */
-const ALERT_TIER_MULT = { 100: 1, 50: 1.5, 25: 2.5 };
-function alertAdjustedDist(p) {
+     aseo_oficial (24h real)                                  fiabilidad 100
+     estación (sin dato de horario, pero de acceso amplio)     fiabilidad 85
+     EMERGENCY_TIPOS con horario REAL declarado (ver openConfidence):
+       dentro de turno, hora normal                            100
+       dentro de turno, hora rara (antes 8:00/después 22:00)    40-70 según categoría
+       fuera de turno (cerrado, seguro)                         excluido
+     EMERGENCY_TIPOS con horario ESTIMADO por categoría:
+       centro_comercial en horario normal   75  (suele abrir sin interrupción;
+                                                  ojo: domingo/festivo penaliza,
+                                                  ver esFestivoComercial)
+       fastfood en horario normal           55  (rara vez cierra a mediodía)
+       bar/cafetería en horario normal      32  (muy irregulares: unos cierran
+                                                  a comer, otros abren solo de
+                                                  noche...)
+       cualquiera de los anteriores en hora rara: la mitad, aprox.
+       fuera incluso de la ventana estimada ("poco probable"):  excluido
+
+   La cercanía usa la misma unidad para todos (minutos andando), sin
+   distinguir categoría: 0 min → 100 puntos, 25 min o más → 0 puntos.
+
+   Recorre TODO allPlaces (no el `places` filtrado): el aviso debe reflejar
+   la realidad aunque el usuario tenga desactivados los servicios de
+   emergencia en los filtros. La misma función de puntuación la reutiliza el
+   motor de recomendación del botón de emergencia (ver rankAlertCandidates). */
+const ALERT_W_RELIABILITY = 0.65;
+const ALERT_W_CLOSENESS = 0.35;
+const ALERT_CLOSENESS_ZERO_AT_MIN = 25;  // a partir de aquí, cercanía = 0 puntos
+const ALERT_RELIABILITY_ESTIMADO = {
+  centro_comercial: { normal: 75, rara: 38 },
+  fastfood: { normal: 55, rara: 28 },
+  bar: { normal: 32, rara: 16 },
+  cafeteria: { normal: 32, rara: 16 },
+};
+const ALERT_RELIABILITY_REAL_RARA = { centro_comercial: 70, fastfood: 60, bar: 40, cafeteria: 40 };
+/* Los centros comerciales en España suelen tener horario reducido (o cierran
+   del todo) en domingo/festivo salvo excepciones puntuales; no tenemos
+   calendario de festivos, así que de momento solo penalizamos el domingo. */
+function esDomingoComercial(now) { return now.getDay() === 0; }
+function alertReliability(p, now) {
+  now = now || new Date();
+  if (!EMERGENCY_TIPOS.has(p.tipo)) return p.tipo === 'aseo_oficial' ? 100 : 85;
+  const conf = openConfidence(p, now);
+  if (!conf) return 30;
+  if (conf.tier === 0 || conf.tier === 10) return 0;
+  if (conf.tier === 100) return 100;
+  const esReal = p.horario && p.horario.modo === 'conocido';
+  if (conf.tier === 25) {
+    return esReal ? (ALERT_RELIABILITY_REAL_RARA[p.tipo] || 40)
+                  : (ALERT_RELIABILITY_ESTIMADO[p.tipo] || { rara: 20 }).rara;
+  }
+  // tier 50: estimado, hora normal
+  let base = (ALERT_RELIABILITY_ESTIMADO[p.tipo] || { normal: 40 }).normal;
+  if (p.tipo === 'centro_comercial' && esDomingoComercial(now)) base = Math.round(base * 0.5);
+  return base;
+}
+function alertCloseness(distM) {
+  const min = minutesWalk(distM);
+  return Math.max(0, 100 - (min / ALERT_CLOSENESS_ZERO_AT_MIN) * 100);
+}
+function alertScoreFor(p, now) {
+  const reliability = alertReliability(p, now);
+  if (reliability <= 0) return null;
   const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
-  if (!EMERGENCY_TIPOS.has(p.tipo)) return d;
-  const conf = openConfidence(p);
-  if (!conf) return d;
-  if (conf.tier === 0 || conf.tier === 10) return null;
-  return d * (ALERT_TIER_MULT[conf.tier] || 1);
+  const closeness = alertCloseness(d);
+  const score = ALERT_W_RELIABILITY * reliability + ALERT_W_CLOSENESS * closeness;
+  return { place: p, score, reliability, dist: d, min: minutesWalk(d) };
+}
+/* Puntúa y ordena de mejor a peor candidato una lista de lugares — la
+   reutilizan tanto el panel de alerta (con allPlaces) como el motor de
+   recomendación del botón de emergencia (con `places`, respetando filtros). */
+function rankAlertCandidates(placesList, now) {
+  const scored = [];
+  for (const p of placesList) {
+    const s = alertScoreFor(p, now);
+    if (s) scored.push(s);
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
 }
 function nearestAlertCandidate() {
   if (!userPos) return null;
-  let best = null, bestAdj = Infinity;
-  for (const p of allPlaces) {
-    const adj = alertAdjustedDist(p);
-    if (adj != null && adj < bestAdj) { bestAdj = adj; best = p; }
-  }
-  return best ? { place: best, min: minutesWalk(bestAdj) } : null;
+  const ranked = rankAlertCandidates(allPlaces);
+  return ranked.length ? ranked[0] : null;
 }
-/* Posición (0-100%) de la aguja dentro de la barra: cada nivel ocupa un
-   cuarto del ancho, con una posición proporcional dentro de su propio rango
-   de minutos (satura en 100% a partir del doble del corte de "naranja"). */
-function alertNeedlePercent(min) {
-  if (min == null) return 100;
-  if (min <= 5) return (min / 5) * 25;
-  if (min <= 10) return 25 + ((min - 5) / 5) * 25;
-  if (min <= 20) return 50 + ((min - 10) / 10) * 25;
-  return Math.min(100, 75 + ((min - 20) / 20) * 25);
+/* Posición (0-100%) de la aguja: directamente 100-puntuación (a más
+   puntuación, más a la izquierda/verde). */
+function alertNeedlePercent(score) {
+  if (score == null) return 100;
+  return Math.max(0, Math.min(100, 100 - score));
 }
 function updateUrgencyPanel() {
   const panel = $('urgencyPanel');
   if (!panel || !userPos || !allPlaces.length) return;
   const cand = nearestAlertCandidate();
-  const level = urgencyLevelFor(cand ? cand.min : null);
+  const level = urgencyLevelFor(cand ? cand.score : null);
 
   panel.className = 'level-' + level.key;
   $('urgencyIcon').textContent = level.icon;
@@ -710,9 +757,98 @@ function updateUrgencyPanel() {
     $('urgencyDetail').textContent = t('urgency_nodata');
   }
   const needle = $('alertNeedle');
-  if (needle) needle.style.left = alertNeedlePercent(cand ? cand.min : null) + '%';
+  if (needle) needle.style.left = alertNeedlePercent(cand ? cand.score : null) + '%';
   panel.style.display = 'flex';
 }
+
+/* ============================================================
+   BOTÓN DE EMERGENCIA — "me estoy cagando"
+   Reutiliza alertReliability/haversine/minutesWalk del sistema de alerta,
+   pero con un equilibrio fiabilidad/cercanía propio por nivel de urgencia:
+   cuanto más urgente, más pesa "está cerca" frente a "es de fiar" (el
+   tiempo escasea y cualquier sitio razonable vale más que uno perfecto pero
+   lejano). Respeta los filtros activos (usa `places`, no `allPlaces`: si el
+   usuario ha desactivado una categoría, no se le recomienda). */
+const EMERGENCY_URGENCY_PROFILES = [
+  null,                                    // 0: falsa alarma, no se usa
+  { wRel: 0.75, wClose: 0.25, zeroAt: 30 }, // 1: leve — puedo permitirme ir a lo seguro aunque esté algo más lejos
+  { wRel: 0.55, wClose: 0.45, zeroAt: 18 }, // 2: moderada — equilibrio, algo más cerca que el nivel de alerta general
+  { wRel: 0.35, wClose: 0.65, zeroAt: 8 },  // 3: extrema — lo más cercano que sea mínimamente viable
+];
+let emergencyRanked = [];
+let emergencyIndex = -1;
+function alertScoreForProfile(p, profile, now) {
+  const reliability = alertReliability(p, now);
+  if (reliability <= 0) return null;
+  const d = haversine(userPos.lat, userPos.lon, p.lat, p.lon);
+  const min = minutesWalk(d);
+  const closeness = Math.max(0, 100 - (min / profile.zeroAt) * 100);
+  const score = profile.wRel * reliability + profile.wClose * closeness;
+  return { place: p, score, reliability, dist: d, min };
+}
+function rankForUrgency(level) {
+  const profile = EMERGENCY_URGENCY_PROFILES[level];
+  const now = new Date();
+  const scored = [];
+  for (const p of places) {
+    const s = alertScoreForProfile(p, profile, now);
+    if (s) scored.push(s);
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+function showEmergencyRecommendation() {
+  if (emergencyIndex < 0 || emergencyIndex >= emergencyRanked.length) {
+    toast(t('emergency_no_more'));
+    emergencyRecommended = null;
+    refreshAllIcons();
+    return;
+  }
+  const cand = emergencyRanked[emergencyIndex].place;
+  closeAllOverlays();
+  emergencyRecommended = cand;
+  setTarget(cand);
+  if (map) map.setView([cand.lat, cand.lon], 17, { animate: true });
+  openSheet(cand);
+}
+function closeEmergencyPanel() {
+  $('emergencyPanel').style.display = 'none';
+  $('emergencyBtn').style.display = 'flex';
+}
+function openEmergencyPanel() {
+  closeAllOverlays();
+  $('emergencyBtn').style.display = 'none';
+  $('emergencyPanel').style.display = 'block';
+  $('emergencySlider').value = 0;
+  updateEmergencyLevelLabel();
+}
+function updateEmergencyLevelLabel() {
+  const level = +$('emergencySlider').value;
+  $('emergencyLevelLabel').textContent = t('emergency_level_' + level);
+}
+$('emergencyBtn').addEventListener('click', openEmergencyPanel);
+$('emergencyPanelClose').addEventListener('click', closeEmergencyPanel);
+$('emergencySlider').addEventListener('input', updateEmergencyLevelLabel);
+$('emergencyGoBtn').addEventListener('click', () => {
+  const level = +$('emergencySlider').value;
+  closeEmergencyPanel();
+  if (level === 0) { toast(t('emergency_false_alarm')); return; }
+  if (!userPos) return;
+  emergencyRanked = rankForUrgency(level);
+  emergencyIndex = 0;
+  showEmergencyRecommendation();
+});
+if ($('recommendDislike')) $('recommendDislike').addEventListener('click', () => {
+  emergencyIndex++;
+  showEmergencyRecommendation();
+});
+if ($('recommendOk')) $('recommendOk').addEventListener('click', () => {
+  emergencyRecommended = null;
+  emergencyRanked = []; emergencyIndex = -1;
+  refreshAllIcons();
+  updateRecommendBanner(selected);
+});
+
 $('teleportBtn').addEventListener('click', () => {
   userPos = { lat: MADRID_SOL.lat, lon: MADRID_SOL.lon, acc: 20 };
   $('outsideModal').style.display = 'none';
@@ -740,6 +876,7 @@ function closeAllOverlays() {
   closeFiltersPopup();
   $('settings').classList.remove('open');
   $('about').classList.remove('open');
+  if ($('emergencyPanel') && $('emergencyPanel').style.display !== 'none') closeEmergencyPanel();
 }
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
@@ -1073,18 +1210,27 @@ function placeIcon(p) {
     html: `<div class="fountain-pin${tierOpacityClass(p)}">${pinSvgMarkup(p)}</div>`
   });
 }
+/* Halo de "ondas" del botón de emergencia (ver emergencyRecommended en el
+   bloque de emergencia): solo lo lleva el candidato recomendado actual. */
+function recommendedHaloHtml(p) {
+  return p === emergencyRecommended ? '<div class="pulse-ring"></div><div class="pulse-ring delay"></div>' : '';
+}
 function nearestIcon(p) {
+  const recommendedClass = p === emergencyRecommended ? ' recommended-pin' : '';
   return L.divIcon({
     className: '', iconSize: [52, 57], iconAnchor: [26, 56], popupAnchor: [0, -52],
-    html: `<div class="fountain-pin nearest-pin${tierOpacityClass(p)}">${pinSvgMarkup(p)}</div>`
+    html: `<div class="fountain-pin nearest-pin${recommendedClass}${tierOpacityClass(p)}">${recommendedHaloHtml(p)}${pinSvgMarkup(p)}</div>`
   });
 }
 
 function initMap() {
   map = L.map('map', {
-    zoomControl: true, attributionControl: true,
+    zoomControl: false, attributionControl: true,
     rotate: true, touchRotate: true, shiftKeyRotate: true, rotateControl: false, bearing: 0
   }).setView([userPos.lat, userPos.lon], 16);
+  // abajo a la izquierda: arriba a la izquierda (por defecto de Leaflet)
+  // quedaba debajo del medidor de nivel de alerta, tapándose entre sí.
+  L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
   applyMapTheme();
   if (map.attributionControl) map.attributionControl.setPrefix(false);
@@ -1233,6 +1379,12 @@ function recreateCluster() {
 function setTarget(p) {
   const prev = selected;
   selected = p;
+  // si se cambia de objetivo a mano (otro marcador, otra ficha...) mientras
+  // había una recomendación de emergencia activa, el halo deja de tener
+  // sentido en el sitio antiguo — se apaga aquí, no en closeSheet() (que
+  // también se llama de camino a abrir la PROPIA recomendación, y ahí no
+  // queremos apagarlo justo después de encenderlo).
+  if (emergencyRecommended && p !== emergencyRecommended) emergencyRecommended = null;
   try { localStorage.setItem(TARGET_KEY, p ? favKey(p) : ''); } catch (_) {}
   if (prev && prev !== p) {
     if (selectedMarker) { map.removeLayer(selectedMarker); selectedMarker = null; }
@@ -1459,6 +1611,13 @@ function openSheet(p) {
   updateFavBtn();
   $('sheet').classList.add('open');
   try { localStorage.setItem(SHEET_OPEN_KEY, '1'); } catch (_) {}
+  updateRecommendBanner(p);
+}
+/* Solo se ve si `p` es el candidato recomendado actual del botón de
+   emergencia (ver bloque "BOTÓN DE EMERGENCIA"). */
+function updateRecommendBanner(p) {
+  const el = $('sheetRecommend'); if (!el) return;
+  el.style.display = (emergencyRecommended && p === emergencyRecommended) ? 'flex' : 'none';
 }
 /* Fila de horario de la ficha: usa la misma confianza de apertura de 4
    niveles que el resto de la app (ver openConfidence). Los aseos 24h se
@@ -1729,11 +1888,12 @@ const RADAR_BLIP_CAP = 150;                   // tope de puntos dibujados (legib
    lejano): ahora la distancia real y la distancia en pantalla son
    directamente proporcionales, sin trucos de escala. */
 const RADAR_RING_FRACS = [1 / 3, 2 / 3, 1];
-const RADAR_RANGE_PRESETS_MIN = [5, 10, 20, 30, 60, 120];
-let radarRangeIdx = 1;   // 10 min por defecto: con 30 salía demasiada cosa a la vez
+/* Múltiplos de 6: así range/3 siempre da un número entero y "redondo" para
+   las etiquetas de los anillos (p.ej. 12 -> 4/8/12), nunca fracciones como
+   "3.5′" que cuestan de leer de un vistazo. */
+const RADAR_RANGE_PRESETS_MIN = [6, 12, 24, 30, 60, 120];
+let radarRangeIdx = 1;   // 12 min por defecto: con 30 salía demasiada cosa a la vez
 let radarOpen = false;
-let radarMap = null;
-let lastRadarBearingUpdate = 0;
 
 function radarRangeMin() { return RADAR_RANGE_PRESETS_MIN[radarRangeIdx]; }
 function fmtRadarMin(min) {
@@ -1753,7 +1913,7 @@ function updateRadarRings() {
   RADAR_RING_FRACS.forEach((f, i) => {
     const r = radarRatioToPx(f);
     if (rings[i]) rings[i].setAttribute('r', r.toFixed(1));
-    if (labels[i]) { labels[i].setAttribute('x', (r + 3).toFixed(1)); labels[i].textContent = fmtRadarMin(range * f); }
+    if (labels[i]) { labels[i].setAttribute('y', (-r).toFixed(1)); labels[i].textContent = fmtRadarMin(range * f); }
   });
 }
 function syncRadarZoomButtons() {
@@ -1851,7 +2011,7 @@ function updateRadarAheadLabel() {
    decorativa (SMIL), ahora la controla JS para poder saber en cada
    instante sobre qué punto pasa el haz y así resaltarlo + anunciarlo
    abajo (antes había un texto fijo "Toca un punto para ver el detalle"). ---- */
-const RADAR_SWEEP_PERIOD_MS = 12000;  // vuelta completa; antes 4s con SMIL, ahora más lento para poder seguirlo con la vista
+const RADAR_SWEEP_PERIOD_MS = 20000;  // vuelta completa; antes 12s, seguía siendo difícil de leer con muchos sitios
 const RADAR_SWEEP_BEAM_DEG = 14;      // debe coincidir con el arco dibujado en el <path id="radarSweep">
 let radarSweepRAF = null;
 let radarSweepStartTs = null;
@@ -1888,44 +2048,9 @@ function updateRadarRotation() {
   const heading = arHeading == null ? 0 : arHeading;
   g.setAttribute('transform', `rotate(${-heading})`);
   updateRadarAheadLabel();
-  updateRadarMapBearing();
 }
 function refreshRadar() {
   renderRadarBlips();
-  updateRadarMap();
-}
-
-/* ---- Mapa real de fondo, atenuado por CSS, sin interacción propia: solo
-   decorativo/de referencia. Se crea una vez y se reutiliza (no se destruye
-   al cerrar el radar, para no recargar teselas cada vez). ---- */
-function radarMapZoomForRange() {
-  const wrap = $('radarWrap');
-  const pxWidth = (wrap && wrap.clientWidth) || 320;
-  const outerPxScreen = RADAR_OUTER_PX * (pxWidth / 320);
-  const mpp = (radarRangeMin() * 80) / outerPxScreen;
-  return Math.max(3, Math.min(19, Math.log2(156543.03 * Math.cos(toRad(userPos.lat)) / mpp)));
-}
-function ensureRadarMap() {
-  if (radarMap || !userPos || !$('radarMapBg')) return;
-  radarMap = L.map('radarMapBg', {
-    zoomControl: false, attributionControl: false, dragging: false, touchZoom: false,
-    scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
-    tap: false, fadeAnimation: false, zoomAnimation: false, inertia: false,
-    rotate: true, rotateControl: false, bearing: 0
-  }).setView([userPos.lat, userPos.lon], radarMapZoomForRange());
-  L.tileLayer(TILES.positron.url, { subdomains: TILES.positron.sub, maxZoom: 20 }).addTo(radarMap);
-}
-function updateRadarMap() {
-  if (!radarMap || !userPos) return;
-  radarMap.setView([userPos.lat, userPos.lon], radarMapZoomForRange(), { animate: false });
-}
-function updateRadarMapBearing() {
-  if (!radarMap || !radarMap.setBearing) return;
-  const now = Date.now();
-  if (now - lastRadarBearingUpdate < MAP_BEARING_THROTTLE) return;
-  lastRadarBearingUpdate = now;
-  const heading = arHeading == null ? 0 : arHeading;
-  radarMap.setBearing((mapBearingSign || 1) * heading);
 }
 
 function openRadarMode() {
@@ -1939,8 +2064,6 @@ function openRadarMode() {
   updateRadarRings();
   renderRadarBlips();
   updateRadarRotation();
-  ensureRadarMap();
-  if (radarMap) { radarMap.invalidateSize(); updateRadarMap(); }
   radarSweepStartTs = null;
   if (radarSweepRAF) cancelAnimationFrame(radarSweepRAF);
   radarSweepRAF = requestAnimationFrame(radarSweepTick);
@@ -1963,6 +2086,36 @@ if ($('radarBlipsGroup')) $('radarBlipsGroup').addEventListener('click', (e) => 
   map.setView([p.lat, p.lon], 17, { animate: true });
   openSheet(p);
 });
+
+/* Pellizco con dos dedos para acercar/alejar el radar, además de los
+   botones +/-: reutiliza los mismos niveles discretos (RADAR_RANGE_PRESETS_MIN)
+   en vez de un zoom continuo, para no desalinear anillos/etiquetas. */
+function radarTouchDist(touches) {
+  return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+}
+let radarPinchStartDist = null;
+const RADAR_PINCH_STEP_RATIO = 1.15;  // % de cambio en la distancia entre dedos para saltar un nivel
+if ($('radarWrap')) {
+  $('radarWrap').addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) radarPinchStartDist = radarTouchDist(e.touches);
+  }, { passive: true });
+  $('radarWrap').addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 2 || radarPinchStartDist == null) return;
+    e.preventDefault();
+    const dist = radarTouchDist(e.touches);
+    const ratio = dist / radarPinchStartDist;
+    if (ratio > RADAR_PINCH_STEP_RATIO) {
+      setRadarRange(radarRangeIdx - 1);
+      radarPinchStartDist = dist;
+    } else if (ratio < 1 / RADAR_PINCH_STEP_RATIO) {
+      setRadarRange(radarRangeIdx + 1);
+      radarPinchStartDist = dist;
+    }
+  }, { passive: false });
+  $('radarWrap').addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) radarPinchStartDist = null;
+  }, { passive: true });
+}
 
 /* ============================================================
    UI wiring + BOOT

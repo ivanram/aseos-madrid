@@ -58,6 +58,18 @@
     "urgency_detail": "{place}, {min} min lopen",
     "urgency_nodata": "Geen betrouwbare gegevens in de buurt",
     "radar_empty": "Niets op de radar (meer dan {min} min lopen)",
-    "radar_caption": "Aan het zoeken…"
+    "radar_caption": "Aan het zoeken…",
+    "emergency_btn_title": "Ik moet echt heel nodig",
+    "emergency_title": "Hoe nodig moet je?",
+    "emergency_level_0": "Loos alarm",
+    "emergency_level_1": "Ik kan het nog even ophouden",
+    "emergency_level_2": "Ik moet snel gaan",
+    "emergency_level_3": "Het is een kwestie van seconden!",
+    "emergency_go": "Zoek een toilet",
+    "emergency_false_alarm": "Gelukkig 😅",
+    "emergency_no_more": "Geen aanbevelingen meer in de buurt",
+    "recommend_text": "Dit toilet raden we je aan",
+    "recommend_dislike": "Vind ik niet leuk, toon een ander",
+    "recommend_ok": "Begrepen"
   }
 }
