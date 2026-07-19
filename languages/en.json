@@ -57,6 +57,7 @@
     "urgency_ok": "All under control", "urgency_warn": "Heads up", "urgency_caution": "Caution", "urgency_danger": "Red alert",
     "urgency_detail": "{place}, {min} min walk",
     "urgency_nodata": "No reliable data nearby",
+    "urgency_widen": "Widening your filters would give you better options",
     "radar_empty": "Nothing on radar (more than {min} min walk)",
     "radar_caption": "Scanning…",
     "emergency_btn_title": "I really need to go",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "Phew 😅",
     "emergency_no_more": "No more nearby recommendations",
     "recommend_text": "We recommend this toilet for you",
-    "recommend_dislike": "I don't like it, show another",
+    "recommend_dislike": "Prefer another",
     "recommend_ok": "Got it"
   }
 }

@@ -57,6 +57,7 @@
     "urgency_ok": "Todo bajo control", "urgency_warn": "No te estreses, todo saldrá bien", "urgency_caution": "Hmm... esto se pone peligroso", "urgency_danger": "Aguanta como sea, estás en mitad de la jungla",
     "urgency_detail": "{place} a {min} min andando",
     "urgency_nodata": "Sin datos fiables cerca",
+    "urgency_widen": "Ampliando los filtros tendrías mejores opciones",
     "radar_empty": "Nada en el radar (más de {min} min andando)",
     "radar_caption": "Buscando…",
     "emergency_btn_title": "Me estoy cagando",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "Menos mal 😅",
     "emergency_no_more": "No hay más recomendaciones cerca",
     "recommend_text": "Estos aseos son tu mejor opción ahora mismo",
-    "recommend_dislike": "No me gusta, quiero otro",
+    "recommend_dislike": "Prefiero otro",
     "recommend_ok": "Vale"
   }
 }

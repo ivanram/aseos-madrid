@@ -57,6 +57,7 @@
     "urgency_ok": "Alles onder controle", "urgency_warn": "Let op", "urgency_caution": "Voorzichtig", "urgency_danger": "Rood alarm",
     "urgency_detail": "{place}, {min} min lopen",
     "urgency_nodata": "Geen betrouwbare gegevens in de buurt",
+    "urgency_widen": "Met ruimere filters heb je betere opties",
     "radar_empty": "Niets op de radar (meer dan {min} min lopen)",
     "radar_caption": "Aan het zoeken…",
     "emergency_btn_title": "Ik moet echt heel nodig",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "Gelukkig 😅",
     "emergency_no_more": "Geen aanbevelingen meer in de buurt",
     "recommend_text": "Dit toilet raden we je aan",
-    "recommend_dislike": "Vind ik niet leuk, toon een ander",
+    "recommend_dislike": "Liever een ander",
     "recommend_ok": "Begrepen"
   }
 }

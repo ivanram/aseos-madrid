@@ -57,6 +57,7 @@
     "urgency_ok": "كل شيء تحت السيطرة", "urgency_warn": "انتبه", "urgency_caution": "احذر", "urgency_danger": "إنذار أحمر",
     "urgency_detail": "{place}، {min} دقيقة مشيًا",
     "urgency_nodata": "لا توجد بيانات موثوقة قريبة",
+    "urgency_widen": "بتوسيع عوامل التصفية ستحصل على خيارات أفضل",
     "radar_empty": "لا يوجد شيء على الرادار (أكثر من {min} دقيقة مشيًا)",
     "radar_caption": "جارٍ البحث…",
     "emergency_btn_title": "أحتاج الذهاب بشدة",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "الحمد لله 😅",
     "emergency_no_more": "لا توجد اقتراحات أخرى قريبة",
     "recommend_text": "ننصحك بدورة المياه هذه",
-    "recommend_dislike": "لا يعجبني، أعطني غيرها",
+    "recommend_dislike": "أفضّل غيرها",
     "recommend_ok": "حسنًا"
   }
 }

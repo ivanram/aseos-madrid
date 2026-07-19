@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.0.23">
+  <link rel="stylesheet" href="styles.css?v=1.0.24">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -65,7 +65,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.0.23</p>
+    <p class="version" id="appVersion">v1.0.24</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -91,6 +91,7 @@
           <span class="urgency-text">
             <strong id="urgencyLabel">Todo bajo control</strong>
             <span id="urgencyDetail">—</span>
+            <span class="urgency-hint" id="urgencyHint" style="display:none" data-i18n="urgency_widen">Ampliando los filtros tendrías mejores opciones</span>
           </span>
         </div>
         <div class="alert-bar">
@@ -170,7 +171,7 @@
     <div class="sheet-recommend" id="sheetRecommend" style="display:none">
       <p data-i18n="recommend_text">Estos aseos son tu mejor opción ahora mismo</p>
       <div class="sheet-recommend-actions">
-        <button class="btn-secondary" id="recommendDislike" data-i18n="recommend_dislike">No me gusta, quiero otro</button>
+        <button class="btn-secondary" id="recommendDislike" data-i18n="recommend_dislike">Prefiero otro</button>
         <button class="btn-secondary" id="recommendOk" data-i18n="recommend_ok">Vale</button>
       </div>
     </div>
@@ -305,7 +306,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://avisos.madrid.es/" target="_blank" rel="noopener" data-i18n="report_link">Reportar un problema al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.23</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.0.24</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -477,7 +478,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.0.23"></script>
-  <script src="app.js?v=1.0.23"></script>
+  <script src="themes.js?v=1.0.24"></script>
+  <script src="app.js?v=1.0.24"></script>
 </body>
 </html>

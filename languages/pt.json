@@ -57,6 +57,7 @@
     "urgency_ok": "Tudo sob controle", "urgency_warn": "Atenção", "urgency_caution": "Cuidado", "urgency_danger": "Alerta vermelho",
     "urgency_detail": "{place}, {min} min a pé",
     "urgency_nodata": "Sem dados confiáveis por perto",
+    "urgency_widen": "Ampliando os filtros você teria opções melhores",
     "radar_empty": "Nada no radar (mais de {min} min a pé)",
     "radar_caption": "Buscando…",
     "emergency_btn_title": "Preciso muito ir",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "Ainda bem 😅",
     "emergency_no_more": "Sem mais recomendações por perto",
     "recommend_text": "Recomendamos este banheiro para você",
-    "recommend_dislike": "Não gostei, quero outro",
+    "recommend_dislike": "Prefiro outro",
     "recommend_ok": "Entendi"
   }
 }

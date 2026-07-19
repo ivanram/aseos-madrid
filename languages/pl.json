@@ -57,6 +57,7 @@
     "urgency_ok": "Wszystko pod kontrolą", "urgency_warn": "Uwaga", "urgency_caution": "Ostrożnie", "urgency_danger": "Czerwony alarm",
     "urgency_detail": "{place}, {min} min pieszo",
     "urgency_nodata": "Brak wiarygodnych danych w pobliżu",
+    "urgency_widen": "Poszerzając filtry, miałbyś lepsze opcje",
     "radar_empty": "Nic na radarze (ponad {min} min pieszo)",
     "radar_caption": "Szukanie…",
     "emergency_btn_title": "Naprawdę muszę już iść",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "Uff 😅",
     "emergency_no_more": "Brak innych propozycji w pobliżu",
     "recommend_text": "Polecamy tę toaletę",
-    "recommend_dislike": "Nie podoba mi się, inna",
+    "recommend_dislike": "Wolę inną",
     "recommend_ok": "Rozumiem"
   }
 }

@@ -57,6 +57,7 @@
     "urgency_ok": "一切正常", "urgency_warn": "请注意", "urgency_caution": "需谨慎", "urgency_danger": "红色警报",
     "urgency_detail": "{place}，步行{min}分钟",
     "urgency_nodata": "附近没有可靠数据",
+    "urgency_widen": "放宽筛选条件会有更好的选择",
     "radar_empty": "雷达范围内没有结果（步行超过{min}分钟）",
     "radar_caption": "搜索中…",
     "emergency_btn_title": "我真的很急",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "还好 😅",
     "emergency_no_more": "附近没有更多推荐了",
     "recommend_text": "为你推荐这个厕所",
-    "recommend_dislike": "不喜欢，换一个",
+    "recommend_dislike": "换一个",
     "recommend_ok": "知道了"
   }
 }

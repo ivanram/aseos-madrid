@@ -57,6 +57,7 @@
     "urgency_ok": "問題ありません", "urgency_warn": "注意", "urgency_caution": "警戒", "urgency_danger": "赤色警報",
     "urgency_detail": "{place}・徒歩{min}分",
     "urgency_nodata": "近くに信頼できるデータがありません",
+    "urgency_widen": "フィルターを広げるともっと良い選択肢があります",
     "radar_empty": "レーダー範囲内になし（徒歩{min}分以上）",
     "radar_caption": "検索中…",
     "emergency_btn_title": "本当にヤバい",
@@ -69,7 +70,7 @@
     "emergency_false_alarm": "よかった 😅",
     "emergency_no_more": "近くに他の候補がありません",
     "recommend_text": "このトイレがおすすめです",
-    "recommend_dislike": "気に入らない、他を探す",
+    "recommend_dislike": "別のがいい",
     "recommend_ok": "了解"
   }
 }

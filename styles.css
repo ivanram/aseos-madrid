@@ -231,7 +231,16 @@ html[data-theme="dark"] .sheet-line.sched.tier-25{color:#e8944f}
 .radar-sweep{ fill:url(#radarSweepGrad);opacity:.5; }
 .radar-heading-tick{ fill:#5df08f; }
 .radar-me{ fill:#eafff2;stroke:#0c2016;stroke-width:2; }
-.radar-blip{ cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1;transition:filter .15s ease,stroke-width .15s ease; }
+/* cx/cy/r son propiedades CSS de geometría en SVG2: con transición, al
+   cambiar de nivel de zoom los puntos se deslizan a su nueva posición
+   (renderRadarBlips los reutiliza en vez de redibujar). El fundido de
+   entrada es para los que aparecen nuevos al ampliar el alcance. */
+.radar-blip{
+  cursor:pointer;stroke:rgba(0,0,0,.4);stroke-width:1;
+  transition:filter .15s ease,stroke-width .15s ease,cx .45s ease,cy .45s ease,r .3s ease;
+  animation:blipEnter .35s ease;
+}
+@keyframes blipEnter{from{opacity:0}to{opacity:1}}
 .radar-blip.fav{ stroke:#fff;stroke-width:1.6; }
 /* Resalte persistente del blip "apuntado" (el que se anuncia arriba, ver
    updateRadarAheadLabel): un halo suave y constante para poder localizarlo
@@ -804,6 +813,7 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 #urgencyPanel .urgency-text{ display:flex;flex-direction:column;line-height:1.28;min-width:0; }
 #urgencyPanel strong{ font-size:.92rem;letter-spacing:-.01em; }
 #urgencyPanel .urgency-text > span{ color:var(--muted);font-size:.84rem; }
+#urgencyPanel .urgency-hint{ font-size:.74rem;font-style:italic;opacity:.85;margin-top:1px; }
 #urgencyPanel.level-ok strong{ color:var(--ok); }
 #urgencyPanel.level-warn strong{ color:#b8860b; }
 #urgencyPanel.level-caution strong{ color:#c9660c; }

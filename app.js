@@ -6,7 +6,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0.23';
+const APP_VERSION = '1.0.24';
 const FAV_KEY = 'aseos_favs_v1';
 const TARGET_KEY = 'aseos_target_v1';
 const SHEET_OPEN_KEY = 'aseos_sheet_open_v1';
@@ -657,7 +657,10 @@ function checkOutsideMadrid() {
      aseo_oficial (24h real)                                  fiabilidad 100
      estación (sin dato de horario, pero de acceso amplio)     fiabilidad 85
      EMERGENCY_TIPOS con horario REAL declarado (ver openConfidence):
-       dentro de turno, hora normal                            100
+       dentro de turno, hora normal                            70-85 según categoría
+         (nunca 100: aunque el censo diga "abierto", un local comercial
+          siempre tiene incertidumbre — cierres puntuales, datos viejos...
+          la alerta ~0 se reserva para un aseo oficial muy cercano)
        dentro de turno, hora rara (antes 8:00/después 22:00)    40-70 según categoría
        fuera de turno (cerrado, seguro)                         excluido
      EMERGENCY_TIPOS con horario ESTIMADO por categoría:
@@ -674,10 +677,12 @@ function checkOutsideMadrid() {
    La cercanía usa la misma unidad para todos (minutos andando), sin
    distinguir categoría: 0 min → 100 puntos, 25 min o más → 0 puntos.
 
-   Recorre TODO allPlaces (no el `places` filtrado): el aviso debe reflejar
-   la realidad aunque el usuario tenga desactivados los servicios de
-   emergencia en los filtros. La misma función de puntuación la reutiliza el
-   motor de recomendación del botón de emergencia (ver rankAlertCandidates). */
+   El medidor respeta los filtros activos (usa `places`, no allPlaces): si
+   el usuario ha excluido los bares, la alerta no puede apoyarse en un bar.
+   Eso sí, cuando al quitar filtros habría una opción claramente mejor, se
+   avisa con una línea pequeña debajo (ver updateUrgencyPanel) para que
+   sepa que la alerta bajaría ampliándolos. La misma función de puntuación
+   la reutiliza el motor de recomendación del botón de emergencia. */
 const ALERT_W_RELIABILITY = 0.65;
 const ALERT_W_CLOSENESS = 0.35;
 const ALERT_CLOSENESS_ZERO_AT_MIN = 25;  // a partir de aquí, cercanía = 0 puntos
@@ -688,6 +693,11 @@ const ALERT_RELIABILITY_ESTIMADO = {
   cafeteria: { normal: 32, rara: 16 },
 };
 const ALERT_RELIABILITY_REAL_RARA = { centro_comercial: 70, fastfood: 60, bar: 40, cafeteria: 40 };
+/* Techo para horario real + abierto ahora + hora normal (el mejor caso
+   posible de un local comercial): con el peso 65/35, un bar abierto a 1 min
+   queda con ~79 puntos — final del verde, rozando el amarillo — mientras
+   que un aseo oficial a 1 min da ~99 (alerta prácticamente nula). */
+const ALERT_RELIABILITY_REAL_OK = { centro_comercial: 85, fastfood: 78, bar: 70, cafeteria: 70 };
 /* Los centros comerciales en España suelen tener horario reducido (o cierran
    del todo) en domingo/festivo salvo excepciones puntuales; no tenemos
    calendario de festivos, así que de momento solo penalizamos el domingo. */
@@ -698,7 +708,7 @@ function alertReliability(p, now) {
   const conf = openConfidence(p, now);
   if (!conf) return 30;
   if (conf.tier === 0 || conf.tier === 10) return 0;
-  if (conf.tier === 100) return 100;
+  if (conf.tier === 100) return ALERT_RELIABILITY_REAL_OK[p.tipo] || 70;
   const esReal = p.horario && p.horario.modo === 'conocido';
   if (conf.tier === 25) {
     return esReal ? (ALERT_RELIABILITY_REAL_RARA[p.tipo] || 40)
@@ -735,7 +745,7 @@ function rankAlertCandidates(placesList, now) {
 }
 function nearestAlertCandidate() {
   if (!userPos) return null;
-  const ranked = rankAlertCandidates(allPlaces);
+  const ranked = rankAlertCandidates(places);
   return ranked.length ? ranked[0] : null;
 }
 /* Posición (0-100%) de la aguja: directamente 100-puntuación (a más
@@ -764,6 +774,20 @@ function updateUrgencyPanel() {
   }
   const needle = $('alertNeedle');
   if (needle) needle.style.left = alertNeedlePercent(cand ? cand.score : null) + '%';
+  // si los filtros están dejando fuera una opción claramente mejor, se avisa:
+  // la alerta es honesta con lo que el usuario ha decidido ver, pero no le
+  // ocultamos que ampliando los filtros la situación mejoraría.
+  const hintEl = $('urgencyHint');
+  if (hintEl) {
+    let show = false;
+    if (places.length !== allPlaces.length) {
+      const ranked = rankAlertCandidates(allPlaces);
+      const bestAll = ranked.length ? ranked[0] : null;
+      if (bestAll && (!cand || bestAll.score > cand.score + 5)) show = true;
+    }
+    hintEl.textContent = t('urgency_widen');
+    hintEl.style.display = show ? '' : 'none';
+  }
   panel.style.display = 'flex';
 }
 
@@ -813,8 +837,10 @@ function showEmergencyRecommendation() {
   const cand = emergencyRanked[emergencyIndex].place;
   closeAllOverlays();
   emergencyRecommended = cand;
-  setTarget(cand);
   if (map) map.setView([cand.lat, cand.lon], 17, { animate: true });
+  // openSheet ya hace setTarget(cand) por dentro: llamarlo aquí ANTES creaba
+  // un segundo marcador resaltado huérfano (setTarget con prev === p no
+  // limpiaba el anterior) — el "sitio duplicado" que se veía en el mapa.
   openSheet(cand);
 }
 function closeEmergencyPanel() {
@@ -1397,6 +1423,11 @@ function setTarget(p) {
     if (places.indexOf(prev) !== -1) placeCluster.addLayer(makeMarker(prev, false));
   }
   if (p) {
+    // quitar SIEMPRE el marcador resaltado anterior antes de crear el nuevo:
+    // si esta función se llama dos veces seguidas con el mismo lugar (prev
+    // === p, así que el bloque de arriba no limpia), sin esto el primer
+    // marcador quedaba huérfano en el mapa — un "sitio duplicado".
+    if (selectedMarker) { map.removeLayer(selectedMarker); selectedMarker = null; }
     if (p.marker && placeCluster.hasLayer(p.marker)) placeCluster.removeLayer(p.marker);
     selectedMarker = makeMarker(p, true).addTo(map);
   }
@@ -1953,10 +1984,14 @@ function radarCandidates(rangeM) {
 }
 let radarCurrentCandidates = [];
 let radarBlipEls = new Map();   // id -> <circle>, para poder resaltar sin volver a dibujar todo
+/* Actualización DIFERENCIAL, no "borrar y redibujar": los <circle> que
+   siguen visibles se reutilizan y solo cambian sus cx/cy/r, que llevan
+   transición CSS (ver .radar-blip) — así al cambiar de nivel de zoom los
+   puntos se DESLIZAN suavemente a su nueva posición en vez de dar el
+   salto brusco de antes. Los nuevos aparecen con un fundido y los que
+   salen del alcance se quitan sin más. */
 function renderRadarBlips() {
   const g = $('radarBlipsGroup'); if (!g || !userPos) return;
-  g.innerHTML = '';
-  radarBlipEls = new Map();
   const rangeM = radarRangeMin() * 80;
   const candidates = radarCandidates(rangeM);
   // el recomendado del botón de emergencia se ve siempre en el radar aunque
@@ -1977,6 +2012,7 @@ function renderRadarBlips() {
     if (!candidates.length) emptyEl.textContent = t('radar_empty').replace('{min}', radarRangeMin());
   }
   const ns = 'http://www.w3.org/2000/svg';
+  const vivos = new Set();
   for (const p of candidates) {
     const brg = bearing(userPos.lat, userPos.lon, p.lat, p.lon);
     const { x, y } = radarPointFor(p.dist, brg);
@@ -1985,18 +2021,25 @@ function renderRadarBlips() {
     const fav = isFav(p);
 
     // solo circulitos de color, sin insignia adicional: menos ruido visual
-    const c = document.createElementNS(ns, 'circle');
+    let c = radarBlipEls.get(p.id);
+    if (!c) {
+      c = document.createElementNS(ns, 'circle');
+      c.dataset.id = p.id;
+      const title = document.createElementNS(ns, 'title');
+      title.textContent = p.nombre || tipoLabel(p.tipo);
+      c.appendChild(title);
+      g.appendChild(c);
+      radarBlipEls.set(p.id, c);
+    }
     c.setAttribute('cx', x.toFixed(1));
     c.setAttribute('cy', y.toFixed(1));
     c.setAttribute('r', r);
     c.setAttribute('fill', isEmergency ? '#d9503f' : (fav ? '#00bcd4' : pinColor(p)));
     c.setAttribute('class', 'radar-blip' + (fav ? ' fav' : '') + (isEmergency ? ' radar-emergency' : ''));
-    c.dataset.id = p.id;
-    const title = document.createElementNS(ns, 'title');
-    title.textContent = p.nombre || tipoLabel(p.tipo);
-    c.appendChild(title);
-    g.appendChild(c);
-    radarBlipEls.set(p.id, c);
+    vivos.add(p.id);
+  }
+  for (const [id, el] of [...radarBlipEls]) {
+    if (!vivos.has(id)) { el.remove(); radarBlipEls.delete(id); }
   }
   updateRadarAheadLabel();
 }
