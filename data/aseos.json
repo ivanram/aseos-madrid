@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-19T14:03:51.578717+00:00",
+  "generado": "2026-11-20T13:46:25.208029+00:00",
   "fuentes": {
     "ayuntamiento_aseos": "https://datos.madrid.es/dataset/300103-0-aseos-publicos-operativos (CC BY 4.0)",
     "ayuntamiento_censo": "https://datos.madrid.es/dataset/200085-0-censo-locales (CC BY 4.0)"
@@ -65366,8 +65366,8 @@
       "direccion": "Marcelo Usera 91",
       "pago": "consumicion",
       "horario": {
-        "modo": "estimado_categoria",
-        "detalle": "08:00-02:00"
+        "modo": "conocido",
+        "detalle": "10:00-00:00"
       },
       "agrupacion": null,
       "verificado": "2026-11-18"
@@ -136349,8 +136349,8 @@
       "direccion": "Aquiles 25",
       "pago": "consumicion",
       "horario": {
-        "modo": "conocido",
-        "detalle": "06:00-00:00"
+        "modo": "estimado_categoria",
+        "detalle": "08:00-02:00"
       },
       "agrupacion": null,
       "verificado": "2026-11-18"
